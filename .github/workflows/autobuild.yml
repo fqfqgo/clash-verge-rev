@@ -59,7 +59,7 @@ jobs:
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
           VERSION=$(jq -r .version package.json)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "DOWNLOAD_URL=https://github.com/clash-verge-rev/clash-verge-rev/releases/download/autobuild" >> $GITHUB_ENV
+          echo "DOWNLOAD_URL=https://github.com/fqfqgo/clash-verge-rev/releases/download/autobuild" >> $GITHUB_ENV
         shell: bash
 
       - run: |
@@ -94,9 +94,6 @@ jobs:
 
           ### FAQ
           - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)
-
-          ### 稳定机场VPN推荐
-          - [狗狗加速](https://verge.dginv.click/#/register?code=oaxsAGo6)
 
           Created at ${{ env.BUILDTIME }}.
           EOF
@@ -559,7 +556,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install jq
           echo "VERSION=$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
-          echo "DOWNLOAD_URL=https://github.com/clash-verge-rev/clash-verge-rev/releases/download/autobuild" >> $GITHUB_ENV
+          echo "DOWNLOAD_URL=https://github.com/fqfqgo/clash-verge-rev/releases/download/autobuild" >> $GITHUB_ENV
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
 
       - name: Generate release.txt
@@ -595,9 +592,6 @@ jobs:
 
           ### FAQ
           - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)
-
-          ### 稳定机场VPN推荐
-          - [狗狗加速](https://verge.dginv.click/#/register?code=oaxsAGo6)
 
           Created at ${{ env.BUILDTIME }}.
           EOF
