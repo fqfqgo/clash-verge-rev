@@ -317,6 +317,8 @@ export interface TranslationResources {
             allowAutoUpdate: string;
             description: string;
             httpTimeout: string;
+            loginPassword: string;
+            loginPasswordPlaceholder: string;
             subscriptionUrl: string;
             type: string;
             updateInterval: string;

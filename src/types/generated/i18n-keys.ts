@@ -170,6 +170,8 @@ export const translationKeys = [
   "profiles.modals.profileForm.fields.description",
   "profiles.modals.profileForm.fields.subscriptionUrl",
   "profiles.modals.profileForm.fields.httpTimeout",
+  "profiles.modals.profileForm.fields.loginPassword",
+  "profiles.modals.profileForm.fields.loginPasswordPlaceholder",
   "profiles.modals.profileForm.fields.updateInterval",
   "profiles.modals.profileForm.fields.useSystemProxy",
   "profiles.modals.profileForm.fields.useClashProxy",
