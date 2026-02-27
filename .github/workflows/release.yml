@@ -617,7 +617,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   submit-to-winget:
-    if: ${{ !contains(github.ref_name, '-rc') }}
+    # 仅在上游仓库执行；fork 无 WINGET_TOKEN 且无需提交 winget
+    if: ${{ github.repository == 'clash-verge-rev/clash-verge-rev' && !contains(github.ref_name, '-rc') }}
     name: Submit to Winget
     runs-on: ubuntu-latest
     needs: [update_tag, release-update]
