@@ -35,7 +35,7 @@ import { HomeProfileCard } from "@/components/home/home-profile-card";
 import { ProxyTunCard } from "@/components/home/proxy-tun-card";
 import { useProfiles } from "@/hooks/use-profiles";
 import { useVerge } from "@/hooks/use-verge";
-import { entry_lightweight_mode, openWebUrl } from "@/services/cmds";
+import { entry_lightweight_mode, launchBrowserWithProxy, openWebUrl } from "@/services/cmds";
 
 const LazyTestCard = lazy(() =>
   import("@/components/home/test-card").then((module) => ({

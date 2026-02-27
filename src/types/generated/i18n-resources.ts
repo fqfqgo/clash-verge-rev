@@ -168,6 +168,7 @@ export interface TranslationResources {
         tooltips: {
           lightweightMode: string;
           manual: string;
+          launchBrowser: string;
           settings: string;
         };
       };

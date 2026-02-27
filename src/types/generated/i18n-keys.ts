@@ -24,6 +24,7 @@ export const translationKeys = [
   "connections.components.columnManager.dragHandle",
   "home.page.tooltips.lightweightMode",
   "home.page.tooltips.manual",
+  "home.page.tooltips.launchBrowser",
   "home.page.tooltips.settings",
   "home.page.cards.trafficStats",
   "home.page.cards.networkSettings",
