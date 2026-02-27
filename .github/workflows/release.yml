@@ -28,19 +28,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if tag is from main branch
+      - name: Check if tag is from dev branch
         run: |
           TAG_REF="${GITHUB_REF##*/}"
-          echo "Checking if tag $TAG_REF is from main branch..."
+          echo "Checking if tag $TAG_REF is from dev branch..."
 
           TAG_COMMIT=$(git rev-list -n 1 $TAG_REF)
-          MAIN_COMMITS=$(git rev-list origin/main)
+          DEV_COMMITS=$(git rev-list origin/dev)
 
-          if echo "$MAIN_COMMITS" | grep -q "$TAG_COMMIT"; then
-            echo "✅ Tag $TAG_REF is from main branch"
+          if echo "$DEV_COMMITS" | grep -q "$TAG_COMMIT"; then
+            echo "✅ Tag $TAG_REF is from dev branch"
           else
-            echo "❌ Tag $TAG_REF is not from main branch"
-            echo "This release workflow only accepts tags from main branch."
+            echo "❌ Tag $TAG_REF is not from dev branch"
+            echo "This release workflow only accepts tags from dev branch."
             exit 1
           fi
 
