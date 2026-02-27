@@ -9,7 +9,6 @@ use crate::{
 use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
 use anyhow::{Context as _, Result, bail};
 use base64::Engine;
-use md5::Md5;
 use serde::{Deserialize, Serialize};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
