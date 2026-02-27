@@ -2,6 +2,7 @@ import {
   DnsOutlined,
   HelpOutlineRounded,
   HistoryEduOutlined,
+  OpenInBrowserOutlined,
   RouterOutlined,
   SettingsOutlined,
   SpeedOutlined,
@@ -380,6 +381,11 @@ const HomePage = () => {
           <Tooltip title={t("home.page.tooltips.manual")} arrow>
             <IconButton onClick={toGithubDoc} size="small" color="inherit">
               <HelpOutlineRounded />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t("home.page.tooltips.launchBrowser")} arrow>
+            <IconButton onClick={() => launchBrowserWithProxy()} size="small" color="inherit">
+              <OpenInBrowserOutlined />
             </IconButton>
           </Tooltip>
           <Tooltip title={t("home.page.tooltips.settings")} arrow>
