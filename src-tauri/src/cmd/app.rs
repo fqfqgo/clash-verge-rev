@@ -49,9 +49,10 @@ pub fn open_web_url(url: String) -> CmdResult<()> {
 pub async fn launch_browser_with_proxy() -> CmdResult<()> {
     let port = {
         let verge = Config::verge().await.data_arc();
-        verge
-            .verge_mixed_port
-            .unwrap_or_else(|| Config::clash().await.data_arc().get_mixed_port())
+        match verge.verge_mixed_port {
+            Some(p) => p,
+            None => Config::clash().await.data_arc().get_mixed_port(),
+        }
     };
     let proxy_arg = format!("127.0.0.1:{}", port);
     let url = "https://www.google.com";
@@ -64,7 +65,7 @@ pub async fn launch_browser_with_proxy() -> CmdResult<()> {
             let status = Command::new(exe)
                 .args([
                     format!("--proxy-server={}", proxy_arg),
-                    url,
+                    url.to_string(),
                 ])
                 .spawn();
             if status.is_ok() {
