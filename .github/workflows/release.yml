@@ -296,6 +296,7 @@ jobs:
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: "-"
           # 不传 APPLE_*，产出未签名包，用户安装后需在 系统设置-隐私与安全性 中添加例外
         with:
           tagName: ${{ github.ref_name }}
@@ -304,7 +305,7 @@ jobs:
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           tauriScript: pnpm
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --skip-macos-signing --skip-macos-notarization
           includeUpdaterJson: true
 
   release-for-linux-arm:
