@@ -1109,7 +1109,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "clash-verge"
-version = "2.4.7"
+version = "2.4.16"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -7452,7 +7452,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-deep-link"
-version = "2.4.7"
+version = "2.4.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94deb2e2e4641514ac496db2cddcfc850d6fc9d51ea17b82292a0490bd20ba5b"
 dependencies = [
