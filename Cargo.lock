@@ -7452,7 +7452,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-deep-link"
-version = "2.4.16"
+version = "2.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94deb2e2e4641514ac496db2cddcfc850d6fc9d51ea17b82292a0490bd20ba5b"
 dependencies = [
