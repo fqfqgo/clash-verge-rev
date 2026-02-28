@@ -8,7 +8,7 @@
       "frameworks": [],
       "minimumSystemVersion": "10.15",
       "exceptionDomain": "",
-      "signingIdentity": null,
+      "signingIdentity": "-",
       "entitlements": "packages/macos/entitlements.plist",
       "dmg": {
         "background": "images/background.png",

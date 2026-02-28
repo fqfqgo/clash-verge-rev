@@ -305,7 +305,7 @@ jobs:
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           tauriScript: pnpm
-          args: --target ${{ matrix.target }} --skip-macos-signing --skip-macos-notarization
+          args: --target ${{ matrix.target }}
           includeUpdaterJson: true
 
   release-for-linux-arm:
