@@ -25,12 +25,18 @@ import { mutate } from "swr";
 
 import { ConfirmViewer } from "@/components/profile/confirm-viewer";
 import { EditorViewer } from "@/components/profile/editor-viewer";
+import {
+  SubscriptionPasswordDialog,
+  isSubscriptionPasswordError,
+  isSubscriptionWrongPassword,
+} from "@/components/profile/subscription-password-dialog";
 import { GroupsEditorViewer } from "@/components/profile/groups-editor-viewer";
 import { RulesEditorViewer } from "@/components/profile/rules-editor-viewer";
 import {
   viewProfile,
   readProfileFile,
   updateProfile,
+  patchProfile,
   saveProfileFile,
   getNextUpdateTime,
 } from "@/services/cmds";
@@ -276,6 +282,28 @@ export const ProfileItem = (props: Props) => {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [scriptOpen, setScriptOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [subscriptionPwDialog, setSubscriptionPwDialog] = useState<{
+    open: boolean;
+    wrongPassword: boolean;
+    initialValue: string;
+    resolve: (v: string | null) => void;
+  } | null>(null);
+
+  const promptSubscriptionPassword = (
+    wrongPassword: boolean,
+    initialValue: string = "",
+  ) =>
+    new Promise<string | null>((resolve) => {
+      setSubscriptionPwDialog({
+        open: true,
+        wrongPassword,
+        initialValue,
+        resolve: (v) => {
+          setSubscriptionPwDialog(null);
+          resolve(v);
+        },
+      });
+    });
 
   const onOpenHome = () => {
     setAnchorEl(null);
@@ -338,7 +366,6 @@ export const ProfileItem = (props: Props) => {
     setAnchorEl(null);
     setLoadingCache((cache) => ({ ...cache, [itemData.uid]: true }));
 
-    // 根据类型设置初始更新选项
     const option: Partial<IProfileOption> = {};
     if (type === 0) {
       option.with_proxy = false;
@@ -352,17 +379,32 @@ export const ProfileItem = (props: Props) => {
         option.self_proxy = false;
       }
     }
+    if (itemData.option?.login_password !== undefined) {
+      option.login_password = itemData.option.login_password;
+    }
 
     try {
-      // 调用后端更新（后端会自动处理回退逻辑）
-      const payload = Object.keys(option).length > 0 ? option : undefined;
-      await updateProfile(itemData.uid, payload);
-
-      // 更新成功，刷新列表
-      mutate("getProfiles");
+      let currentOption = { ...option };
+      while (true) {
+        try {
+          const payload =
+            Object.keys(currentOption).length > 0 ? currentOption : undefined;
+          await updateProfile(itemData.uid, payload);
+          mutate("getProfiles");
+          break;
+        } catch (err) {
+          if (!isSubscriptionPasswordError(err)) throw err;
+          const password = await promptSubscriptionPassword(
+            isSubscriptionWrongPassword(err),
+            currentOption.login_password ?? "",
+          );
+          if (password === null) break;
+          currentOption = { ...currentOption, login_password: password };
+          await patchProfile(itemData.uid, { login_password: password });
+        }
+      }
     } catch {
-      // 更新完全失败（包括后端的回退尝试）
-      // 不需要做处理，后端会通过事件通知系统发送错误
+      // 后端会通过事件通知系统发送错误
     } finally {
       setLoadingCache((cache) => ({ ...cache, [itemData.uid]: false }));
     }
@@ -911,6 +953,17 @@ export const ProfileItem = (props: Props) => {
           setConfirmOpen(false);
         }}
       />
+      {subscriptionPwDialog && (
+        <SubscriptionPasswordDialog
+          open={subscriptionPwDialog.open}
+          wrongPassword={subscriptionPwDialog.wrongPassword}
+          initialValue={subscriptionPwDialog.initialValue}
+          onConfirm={(password) =>
+            subscriptionPwDialog.resolve(password)
+          }
+          onCancel={() => subscriptionPwDialog.resolve(null)}
+        />
+      )}
     </Box>
   );
 };

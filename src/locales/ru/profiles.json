@@ -109,7 +109,11 @@
         "useSystemProxy": "Использовать системный прокси для обновления",
         "useClashProxy": "Использовать прокси Clash для обновления",
         "acceptInvalidCerts": "Принимать недействительные сертификаты (ОПАСНО)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "Пароль подписки",
+        "loginPasswordPlaceholder": "Для шифрованной подписки (Subscription-Encryption)",
+        "loginPasswordWrongHint": "Неверный пароль, попробуйте снова",
+        "loginPasswordDialogTitle": "Пароль входа на сайт"
       },
       "feedback": {
         "notifications": {

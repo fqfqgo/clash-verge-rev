@@ -109,7 +109,11 @@
         "useSystemProxy": "Системалы проксины кулланып яңарту",
         "useClashProxy": "Clash прокси кулланып яңарту",
         "acceptInvalidCerts": "Дөрес булмаган сертификатларны кабул итү (Куркыныч)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "Язма пароль",
+        "loginPasswordPlaceholder": "Шифрланган язма өчен (Subscription-Encryption)",
+        "loginPasswordWrongHint": "Пароль ялгыш, тагын бер тапкыр сынап карагыз",
+        "loginPasswordDialogTitle": "Сайт керү пароле"
       },
       "feedback": {
         "notifications": {

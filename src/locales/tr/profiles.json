@@ -109,7 +109,11 @@
         "useSystemProxy": "Sistem Vekil'ini Kullan",
         "useClashProxy": "Clash Vekil'ini Kullan",
         "acceptInvalidCerts": "Geçersiz Sertifikalara İzin Ver (Tehlikeli)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "Abonelik giriş parolası",
+        "loginPasswordPlaceholder": "Şifreli abonelik için (Subscription-Encryption)",
+        "loginPasswordWrongHint": "Parola hatalı, lütfen tekrar deneyin",
+        "loginPasswordDialogTitle": "Site giriş parolası"
       },
       "feedback": {
         "notifications": {

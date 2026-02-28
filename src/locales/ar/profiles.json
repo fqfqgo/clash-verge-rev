@@ -109,7 +109,11 @@
         "useSystemProxy": "استخدام وكيل النظام",
         "useClashProxy": "استخدام وكيل Clash",
         "acceptInvalidCerts": "قبول الشهادات غير الصالحة (خطر)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "كلمة مرور الاشتراك",
+        "loginPasswordPlaceholder": "للاشتراك المشفر (Subscription-Encryption)",
+        "loginPasswordWrongHint": "كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى",
+        "loginPasswordDialogTitle": "كلمة مرور تسجيل الدخول للموقع"
       },
       "feedback": {
         "notifications": {

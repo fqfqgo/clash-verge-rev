@@ -109,7 +109,11 @@
         "useSystemProxy": "使用系統代理更新",
         "useClashProxy": "使用內核代理更新",
         "acceptInvalidCerts": "允許無效憑證（危險）",
-        "allowAutoUpdate": "允許自動更新"
+        "allowAutoUpdate": "允許自動更新",
+        "loginPassword": "訂閱登入密碼",
+        "loginPasswordPlaceholder": "用於解密加密訂閱（Subscription-Encryption）",
+        "loginPasswordWrongHint": "密碼錯誤，請重試",
+        "loginPasswordDialogTitle": "網站登入密碼"
       },
       "feedback": {
         "notifications": {

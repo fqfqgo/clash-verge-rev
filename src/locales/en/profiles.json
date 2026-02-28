@@ -107,6 +107,8 @@
         "httpTimeout": "HTTP Request Timeout",
         "loginPassword": "Subscription Login Password",
         "loginPasswordPlaceholder": "For encrypted subscription (Subscription-Encryption)",
+        "loginPasswordWrongHint": "Incorrect password, please try again",
+        "loginPasswordDialogTitle": "Website login password",
         "updateInterval": "Update Interval",
         "useSystemProxy": "Use System Proxy",
         "useClashProxy": "Use Clash Proxy",

@@ -109,7 +109,11 @@
         "useSystemProxy": "システムプロキシを使用して更新",
         "useClashProxy": "クラッシュプロキシを使用して更新",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "サブスクリプションログインパスワード",
+        "loginPasswordPlaceholder": "暗号化されたサブスクリプション用（Subscription-Encryption）",
+        "loginPasswordWrongHint": "パスワードが正しくありません。再試行してください",
+        "loginPasswordDialogTitle": "ウェブサイトログインパスワード"
       },
       "feedback": {
         "notifications": {

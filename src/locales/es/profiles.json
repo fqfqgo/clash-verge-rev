@@ -109,7 +109,11 @@
         "useSystemProxy": "Usar proxy del sistema para actualizar",
         "useClashProxy": "Usar proxy del núcleo para actualizar",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "Contraseña de suscripción",
+        "loginPasswordPlaceholder": "Para suscripción cifrada (Subscription-Encryption)",
+        "loginPasswordWrongHint": "Contraseña incorrecta, inténtelo de nuevo",
+        "loginPasswordDialogTitle": "Contraseña de acceso al sitio"
       },
       "feedback": {
         "notifications": {

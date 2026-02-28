@@ -109,7 +109,11 @@
         "useSystemProxy": "Systemproxy zur Aktualisierung verwenden",
         "useClashProxy": "Kernel-Proxy zur Aktualisierung verwenden",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "Abonnement-Anmeldepasswort",
+        "loginPasswordPlaceholder": "Für verschlüsseltes Abonnement (Subscription-Encryption)",
+        "loginPasswordWrongHint": "Falsches Passwort, bitte erneut versuchen",
+        "loginPasswordDialogTitle": "Website-Anmeldepasswort"
       },
       "feedback": {
         "notifications": {

@@ -24,8 +24,13 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
+import {
+  SubscriptionPasswordDialog,
+  isSubscriptionPasswordError,
+  isSubscriptionWrongPassword,
+} from "@/components/profile/subscription-password-dialog";
 import { useAppData } from "@/providers/app-data-context";
-import { openWebUrl, updateProfile } from "@/services/cmds";
+import { openWebUrl, patchProfile, updateProfile } from "@/services/cmds";
 import { showNotice } from "@/services/notice-service";
 import parseTraffic from "@/utils/parse-traffic";
 
@@ -285,19 +290,58 @@ export const HomeProfileCard = ({
 
   // 更新当前订阅
   const [updating, setUpdating] = useState(false);
+  const [subscriptionPwDialog, setSubscriptionPwDialog] = useState<{
+    open: boolean;
+    wrongPassword: boolean;
+    initialValue: string;
+    resolve: (v: string | null) => void;
+  } | null>(null);
+
+  const promptSubscriptionPassword = useCallback(
+    (wrongPassword: boolean, initialValue: string = "") =>
+      new Promise<string | null>((resolve) => {
+        setSubscriptionPwDialog({
+          open: true,
+          wrongPassword,
+          initialValue,
+          resolve: (v) => {
+            setSubscriptionPwDialog(null);
+            resolve(v);
+          },
+        });
+      }),
+    [],
+  );
 
   const onUpdateProfile = useLockFn(async () => {
     if (!current?.uid) return;
 
     setUpdating(true);
     try {
-      await updateProfile(current.uid, current.option);
-      onProfileUpdated?.();
-
-      // 刷新首页数据
-      refreshAll();
-    } catch (err) {
-      showNotice.error(err, 3000);
+      let option = current.option ?? {};
+      while (true) {
+        try {
+          await updateProfile(
+            current.uid,
+            Object.keys(option).length > 0 ? option : undefined,
+          );
+          onProfileUpdated?.();
+          refreshAll();
+          break;
+        } catch (err) {
+          if (!isSubscriptionPasswordError(err)) {
+            showNotice.error(err, 3000);
+            break;
+          }
+          const password = await promptSubscriptionPassword(
+            isSubscriptionWrongPassword(err),
+            (option as { login_password?: string })?.login_password ?? "",
+          );
+          if (password === null) break;
+          option = { ...option, login_password: password };
+          await patchProfile(current.uid, { login_password: password });
+        }
+      }
     } finally {
       setUpdating(false);
     }
@@ -369,21 +413,34 @@ export const HomeProfileCard = ({
   }, [current, goToProfiles, t]);
 
   return (
-    <EnhancedCard
-      title={cardTitle}
-      icon={<CloudUploadOutlined />}
-      iconColor="info"
-      action={cardAction}
-    >
-      {current ? (
-        <ProfileDetails
-          current={current}
-          onUpdateProfile={onUpdateProfile}
-          updating={updating}
+    <>
+      <EnhancedCard
+        title={cardTitle}
+        icon={<CloudUploadOutlined />}
+        iconColor="info"
+        action={cardAction}
+      >
+        {current ? (
+          <ProfileDetails
+            current={current}
+            onUpdateProfile={onUpdateProfile}
+            updating={updating}
+          />
+        ) : (
+          <EmptyProfile onClick={goToProfiles} />
+        )}
+      </EnhancedCard>
+      {subscriptionPwDialog && (
+        <SubscriptionPasswordDialog
+          open={subscriptionPwDialog.open}
+          wrongPassword={subscriptionPwDialog.wrongPassword}
+          initialValue={subscriptionPwDialog.initialValue}
+          onConfirm={(password) =>
+            subscriptionPwDialog.resolve(password)
+          }
+          onCancel={() => subscriptionPwDialog.resolve(null)}
         />
-      ) : (
-        <EmptyProfile onClick={goToProfiles} />
       )}
-    </EnhancedCard>
+    </>
   );
 };

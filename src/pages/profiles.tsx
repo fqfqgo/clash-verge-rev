@@ -43,6 +43,11 @@ import {
   ProfileViewer,
   ProfileViewerRef,
 } from "@/components/profile/profile-viewer";
+import {
+  SubscriptionPasswordDialog,
+  isSubscriptionPasswordError,
+  isSubscriptionWrongPassword,
+} from "@/components/profile/subscription-password-dialog";
 import { ConfigViewer } from "@/components/setting/mods/config-viewer";
 import { useListen } from "@/hooks/use-listen";
 import { useProfiles } from "@/hooks/use-profiles";
@@ -258,6 +263,29 @@ const ProfilePage = () => {
   const viewerRef = useRef<ProfileViewerRef>(null);
   const configRef = useRef<DialogRef>(null);
 
+  const [subscriptionPwDialog, setSubscriptionPwDialog] = useState<{
+    open: boolean;
+    wrongPassword: boolean;
+    initialValue: string;
+    resolve: (v: string | null) => void;
+  } | null>(null);
+
+  const promptSubscriptionPassword = useCallback(
+    (wrongPassword: boolean, initialValue: string = "") =>
+      new Promise<string | null>((resolve) => {
+        setSubscriptionPwDialog({
+          open: true,
+          wrongPassword,
+          initialValue,
+          resolve: (v) => {
+            setSubscriptionPwDialog(null);
+            resolve(v);
+          },
+        });
+      }),
+    [],
+  );
+
   // distinguish type
   const profileItems = useMemo(() => {
     const items = profiles.items || [];
@@ -273,7 +301,6 @@ const ProfilePage = () => {
 
   const onImport = async () => {
     if (!url) return;
-    // 校验url是否为http/https
     if (!/^https?:\/\//i.test(url)) {
       showNotice.error("profiles.page.feedback.errors.invalidUrl");
       return;
@@ -286,29 +313,94 @@ const ProfilePage = () => {
       await performRobustRefresh();
     };
 
-    try {
-      // 尝试正常导入
-      await importProfile(url);
-      await handleImportSuccess("shared.feedback.notifications.importSuccess");
-    } catch (initialErr) {
-      console.warn("[订阅导入] 首次导入失败:", initialErr);
+    type ImportOption = {
+      login_password?: string;
+      with_proxy?: boolean;
+      self_proxy?: boolean;
+    };
 
-      showNotice.info("profiles.page.feedback.notifications.importRetry");
+    const tryImportWithPassword = async (
+      baseOption: ImportOption = {},
+    ): Promise<{ ok: true } | { ok: false; needPassword: boolean; err: unknown }> => {
       try {
-        // 使用自身代理尝试导入
         await importProfile(url, {
-          with_proxy: false,
-          self_proxy: true,
+          with_proxy: true,
+          self_proxy: false,
+          ...baseOption,
         });
-        await handleImportSuccess(
-          "shared.feedback.notifications.importWithClashProxy",
-        );
-      } catch (retryErr) {
-        // 回退导入也失败
-        showNotice.error(
-          "profiles.page.feedback.notifications.importFail",
-          String(retryErr),
-        );
+        await handleImportSuccess("shared.feedback.notifications.importSuccess");
+        return { ok: true };
+      } catch (err) {
+        if (isSubscriptionPasswordError(err)) {
+          return { ok: false, needPassword: true, err };
+        }
+        return { ok: false, needPassword: false, err };
+      }
+    };
+
+    try {
+      let option: ImportOption = {};
+      while (true) {
+        const result = await tryImportWithPassword(option);
+        if (result.ok) break;
+        if (result.needPassword) {
+          const password = await promptSubscriptionPassword(
+            isSubscriptionWrongPassword(result.err),
+            option.login_password ?? "",
+          );
+          if (password === null) break;
+          option = { ...option, login_password: password };
+          continue;
+        }
+        console.warn("[订阅导入] 首次导入失败:", result.err);
+        showNotice.info("profiles.page.feedback.notifications.importRetry");
+        try {
+          await importProfile(url, {
+            with_proxy: false,
+            self_proxy: true,
+            ...option,
+          });
+          await handleImportSuccess(
+            "shared.feedback.notifications.importWithClashProxy",
+          );
+        } catch (retryErr) {
+          if (isSubscriptionPasswordError(retryErr)) {
+            let retryOption = option;
+            while (true) {
+              const password = await promptSubscriptionPassword(
+                isSubscriptionWrongPassword(retryErr),
+                retryOption.login_password ?? "",
+              );
+              if (password === null) break;
+              retryOption = { ...retryOption, login_password: password };
+              try {
+                await importProfile(url, {
+                  with_proxy: false,
+                  self_proxy: true,
+                  ...retryOption,
+                });
+                await handleImportSuccess(
+                  "shared.feedback.notifications.importWithClashProxy",
+                );
+                break;
+              } catch (e) {
+                if (!isSubscriptionPasswordError(e)) {
+                  showNotice.error(
+                    "profiles.page.feedback.notifications.importFail",
+                    String(e),
+                  );
+                  break;
+                }
+              }
+            }
+          } else {
+            showNotice.error(
+              "profiles.page.feedback.notifications.importFail",
+              String(retryErr),
+            );
+          }
+        }
+        break;
       }
     } finally {
       setDisabled(false);
@@ -1077,6 +1169,17 @@ const ProfilePage = () => {
           }
         }}
       />
+      {subscriptionPwDialog && (
+        <SubscriptionPasswordDialog
+          open={subscriptionPwDialog.open}
+          wrongPassword={subscriptionPwDialog.wrongPassword}
+          initialValue={subscriptionPwDialog.initialValue}
+          onConfirm={(password) =>
+            subscriptionPwDialog.resolve(password)
+          }
+          onCancel={() => subscriptionPwDialog.resolve(null)}
+        />
+      )}
       <ConfigViewer ref={configRef} />
     </BasePage>
   );

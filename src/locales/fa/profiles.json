@@ -109,7 +109,11 @@
         "useSystemProxy": "استفاده از پراکسی سیستم",
         "useClashProxy": "استفاده از پراکسی Clash",
         "acceptInvalidCerts": "پذیرش گواهی‌نامه‌های نامعتبر (خطرناک)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "رمز ورود اشتراک",
+        "loginPasswordPlaceholder": "برای اشتراک رمزگذاری‌شده (Subscription-Encryption)",
+        "loginPasswordWrongHint": "رمز اشتباه است، دوباره تلاش کنید",
+        "loginPasswordDialogTitle": "رمز ورود وب‌سایت"
       },
       "feedback": {
         "notifications": {

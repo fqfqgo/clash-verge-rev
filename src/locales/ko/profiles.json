@@ -109,7 +109,11 @@
         "useSystemProxy": "시스템 프록시 사용",
         "useClashProxy": "Clash 프록시 사용",
         "acceptInvalidCerts": "잘못된 인증서 허용(위험)",
-        "allowAutoUpdate": "자동 업데이트 허용"
+        "allowAutoUpdate": "자동 업데이트 허용",
+        "loginPassword": "구독 로그인 비밀번호",
+        "loginPasswordPlaceholder": "암호화된 구독용(Subscription-Encryption)",
+        "loginPasswordWrongHint": "비밀번호가 올바르지 않습니다. 다시 시도하세요",
+        "loginPasswordDialogTitle": "웹사이트 로그인 비밀번호"
       },
       "feedback": {
         "notifications": {

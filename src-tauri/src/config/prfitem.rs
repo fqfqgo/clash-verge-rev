@@ -414,14 +414,12 @@ impl PrfItem {
                     let dec = Aes128CbcDec::new_from_slices(key.as_ref(), iv_slice)
                         .map_err(|_| anyhow::anyhow!("subscription decryption: invalid key/iv length"))?
                         .decrypt_padded_mut::<Pkcs7>(&mut cipher_mut)
-                        .map_err(|_| anyhow::anyhow!("subscription decryption failed (wrong password?)"))?;
+                        .map_err(|_| anyhow::anyhow!("SUBSCRIPTION_WRONG_PASSWORD"))?;
                     data = std::str::from_utf8(dec)
                         .map(|s| s.to_string())
                         .context("subscription decryption: result is not valid UTF-8")?;
                 }
-                None => bail!(
-                    "subscription is encrypted (Subscription-Encryption: true) but no login password is set; please set the subscription password in profile options"
-                ),
+                None => bail!("SUBSCRIPTION_NEED_PASSWORD"),
             }
         }
 

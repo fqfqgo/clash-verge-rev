@@ -319,6 +319,8 @@ export interface TranslationResources {
             httpTimeout: string;
             loginPassword: string;
             loginPasswordPlaceholder: string;
+            loginPasswordWrongHint: string;
+            loginPasswordDialogTitle: string;
             subscriptionUrl: string;
             type: string;
             updateInterval: string;

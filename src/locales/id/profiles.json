@@ -109,7 +109,11 @@
         "useSystemProxy": "Gunakan Proksi Sistem",
         "useClashProxy": "Gunakan Proksi Clash",
         "acceptInvalidCerts": "Terima Sertifikat Tidak Valid (Bahaya)",
-        "allowAutoUpdate": "Allow Auto Update"
+        "allowAutoUpdate": "Allow Auto Update",
+        "loginPassword": "Kata sandi langganan",
+        "loginPasswordPlaceholder": "Untuk langganan terenkripsi (Subscription-Encryption)",
+        "loginPasswordWrongHint": "Kata sandi salah, silakan coba lagi",
+        "loginPasswordDialogTitle": "Kata sandi login situs"
       },
       "feedback": {
         "notifications": {
