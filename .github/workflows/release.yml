@@ -719,8 +719,13 @@ jobs:
           EOF
 
       - name: Send Telegram Notification
-        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' }}
-        run: node scripts/telegram.mjs
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "Telegram token missing; skip notification."
+            exit 0
+          fi
+
+          node scripts/telegram.mjs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           BUILD_TYPE: release
