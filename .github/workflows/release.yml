@@ -641,7 +641,7 @@ jobs:
           token: ${{ secrets.WINGET_TOKEN  }}
 
   notify-telegram:
-    if: ${{ !contains(github.ref_name, '-rc') && env.TELEGRAM_BOT_TOKEN != '' }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Notify Telegram
     runs-on: ubuntu-latest
     needs:
@@ -719,6 +719,7 @@ jobs:
           EOF
 
       - name: Send Telegram Notification
+        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' }}
         run: node scripts/telegram.mjs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
