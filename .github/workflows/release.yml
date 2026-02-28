@@ -13,6 +13,7 @@ env:
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: short
   HUSKY: 0
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 concurrency:
   # only allow per workflow per commit (and not pr) to run at a time
   group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
@@ -640,7 +641,7 @@ jobs:
           token: ${{ secrets.WINGET_TOKEN  }}
 
   notify-telegram:
-    if: ${{ !contains(github.ref_name, '-rc') && secrets.TELEGRAM_BOT_TOKEN != '' }}
+    if: ${{ !contains(github.ref_name, '-rc') && env.TELEGRAM_BOT_TOKEN != '' }}
     name: Notify Telegram
     runs-on: ubuntu-latest
     needs:
