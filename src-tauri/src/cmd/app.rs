@@ -44,7 +44,7 @@ pub fn open_web_url(url: String) -> CmdResult<()> {
 }
 
 /// Launch the default browser with the current Clash proxy (mixed port).
-/// Only the configured port is used; ensure the core is running for the proxy to work.
+/// Uses a dedicated user-data-dir (like FlClash) so the browser uses only the given proxy.
 #[tauri::command]
 pub async fn launch_browser_with_proxy() -> CmdResult<()> {
     let port = {
@@ -54,32 +54,76 @@ pub async fn launch_browser_with_proxy() -> CmdResult<()> {
             None => Config::clash().await.data_arc().get_mixed_port(),
         }
     };
-    let proxy_arg = format!("127.0.0.1:{}", port);
+    let proxy_arg = format!("--proxy-server=http://127.0.0.1:{}", port);
     let url = "https://www.google.com";
+
+    let app_home = dirs::app_home_dir().stringify_err()?;
+    #[cfg(target_os = "windows")]
+    let profile_dir = app_home.join("clash-verge-edge");
+    #[cfg(not(target_os = "windows"))]
+    let profile_dir = app_home.join("clash-verge-chrome");
+    fs::create_dir_all(&profile_dir).await.stringify_err()?;
+    let user_data_arg = format!("--user-data-dir={}", profile_dir.display());
 
     #[cfg(target_os = "windows")]
     {
-        // Try msedge first (Windows 10/11), then chrome
-        let browsers = ["msedge", "chrome"];
-        for exe in browsers {
-            let status = Command::new(exe)
-                .args([
-                    format!("--proxy-server={}", proxy_arg),
-                    url.to_string(),
-                ])
-                .spawn();
-            if status.is_ok() {
-                return Ok(());
+        let mut candidates: Vec<std::path::PathBuf> = vec![
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe".into(),
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe".into(),
+        ];
+        if let Ok(local) = std::env::var("LOCALAPPDATA") {
+            if !local.is_empty() {
+                candidates.push(
+                    std::path::PathBuf::from(local).join("Microsoft").join("Edge").join("Application").join("msedge.exe"),
+                );
             }
         }
-        return Err("Could not start browser (tried msedge, chrome). Install Edge or Chrome.".into());
+        for exe_path in candidates {
+            if exe_path.exists() {
+                let status = Command::new(&exe_path)
+                    .args([
+                        "--new-window",
+                        &user_data_arg,
+                        &proxy_arg,
+                        url,
+                    ])
+                    .spawn();
+                if status.is_ok() {
+                    return Ok(());
+                }
+            }
+        }
+        let status = Command::new("cmd")
+            .args([
+                "/c",
+                "start",
+                "",
+                "msedge",
+                "--new-window",
+                &user_data_arg,
+                &proxy_arg,
+                url,
+            ])
+            .spawn();
+        if status.is_ok() {
+            return Ok(());
+        }
+        return Err("Could not start browser (tried Edge). Install Microsoft Edge.".into());
     }
 
     #[cfg(target_os = "macos")]
     {
-        // Open Chrome with proxy if available, else default browser (no proxy)
         let status = Command::new("open")
-            .args(["-a", "Google Chrome", "--args", &format!("--proxy-server={}", proxy_arg), url])
+            .args([
+                "-n",
+                "-a",
+                "Google Chrome",
+                "--args",
+                "--new-window",
+                &user_data_arg,
+                &proxy_arg,
+                url,
+            ])
             .spawn();
         if status.is_ok() {
             return Ok(());
@@ -89,11 +133,10 @@ pub async fn launch_browser_with_proxy() -> CmdResult<()> {
 
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
-        // Linux: try chromium or google-chrome with proxy
-        let browsers = ["chromium", "google-chrome", "chromium-browser"];
+        let browsers = ["google-chrome", "google-chrome-stable", "chromium-browser", "chromium"];
         for exe in browsers {
             let status = Command::new(exe)
-                .args([format!("--proxy-server={}", proxy_arg), url.to_string()])
+                .args(["--new-window", &user_data_arg, &proxy_arg, url])
                 .spawn();
             if status.is_ok() {
                 return Ok(());
