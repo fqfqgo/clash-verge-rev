@@ -222,7 +222,7 @@ jobs:
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           tauriScript: pnpm
-          args: --target ${{ matrix.target }} --skip-macos-signing
+          args: --target ${{ matrix.target }}
           includeUpdaterJson: true
 
   # macOS 构建：不配置 Apple 证书，产出未签名 .app/.dmg（与 FlClash 一致，用户需在系统里添加信任）
