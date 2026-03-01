@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "インポートに失敗しました。Clashプロキシを使用して再試行します...",
         "importFail": "Clashプロキシを使用してもインポートに失敗しました。",
+        "encryptedSubscriptionPrompt": "暗号化されたサブスクリプションです。ウェブサイトのログインパスワードを入力してください",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "プロファイルが切り替えられました。",
@@ -110,8 +111,8 @@
         "useClashProxy": "クラッシュプロキシを使用して更新",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "サブスクリプションログインパスワード",
-        "loginPasswordPlaceholder": "暗号化されたサブスクリプション用（Subscription-Encryption）",
+        "loginPassword": "ウェブサイトログインパスワード",
+        "loginPasswordPlaceholder": "空港サイトのログインパスワード",
         "loginPasswordWrongHint": "パスワードが正しくありません。再試行してください",
         "loginPasswordDialogTitle": "ウェブサイトログインパスワード"
       },

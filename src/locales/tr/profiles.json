@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "İçe aktarma başarısız oldu, Clash vekil ile yeniden deneniyor...",
         "importFail": "Clash vekil ile bile içe aktarma başarısız oldu",
+        "encryptedSubscriptionPrompt": "Şifreli abonelik. Lütfen site giriş parolasını girin",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "Profil Değiştirildi",
@@ -110,8 +111,8 @@
         "useClashProxy": "Clash Vekil'ini Kullan",
         "acceptInvalidCerts": "Geçersiz Sertifikalara İzin Ver (Tehlikeli)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Abonelik giriş parolası",
-        "loginPasswordPlaceholder": "Şifreli abonelik için (Subscription-Encryption)",
+        "loginPassword": "Site giriş parolası",
+        "loginPasswordPlaceholder": "Havaalanı sitesi giriş parolanız",
         "loginPasswordWrongHint": "Parola hatalı, lütfen tekrar deneyin",
         "loginPasswordDialogTitle": "Site giriş parolası"
       },

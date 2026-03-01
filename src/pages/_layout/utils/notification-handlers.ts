@@ -29,13 +29,29 @@ export const handleNoticeMessage = (
         "settings.feedback.notifications.updater.withClashProxySuccess",
         msg,
       ),
-    update_failed_even_with_clash: () =>
+    update_failed_even_with_clash: () => {
+      // 加密订阅需密码：由发起更新的组件弹密码框，不在此处报错
+      if (
+        msg.includes("SUBSCRIPTION_NEED_PASSWORD") ||
+        msg.includes("SUBSCRIPTION_WRONG_PASSWORD")
+      ) {
+        return;
+      }
       showNotice.error(
         "settings.feedback.notifications.updater.withClashProxyFailed",
         msg,
-      ),
+      );
+    },
     "reactivate_profiles::error": () => showNotice.error(msg),
-    update_failed: () => showNotice.error(msg),
+    update_failed: () => {
+      if (
+        msg.includes("SUBSCRIPTION_NEED_PASSWORD") ||
+        msg.includes("SUBSCRIPTION_WRONG_PASSWORD")
+      ) {
+        return;
+      }
+      showNotice.error(msg);
+    },
     "config_validate::boot_error": () =>
       showNotice.error("shared.feedback.validation.config.bootFailed", msg),
     "config_validate::core_change": () =>

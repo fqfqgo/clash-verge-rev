@@ -374,6 +374,7 @@ export interface TranslationResources {
           };
           notifications: {
             batchDeleted: string;
+            encryptedSubscriptionPrompt: string;
             importFail: string;
             importNeedsRefresh: string;
             importRetry: string;
@@ -1228,6 +1229,7 @@ export interface TranslationResources {
         edit: string;
         enable: string;
         hideDetails: string;
+        hidePassword: string;
         listView: string;
         new: string;
         next: string;
@@ -1241,6 +1243,7 @@ export interface TranslationResources {
         retry: string;
         save: string;
         showDetails: string;
+        showPassword: string;
         tableView: string;
         upgrade: string;
       };

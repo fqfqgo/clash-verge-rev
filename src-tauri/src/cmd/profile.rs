@@ -74,7 +74,12 @@ pub async fn import_profile(url: std::string::String, option: Option<PrfOption>)
             it
         }
         Err(e) => {
-            logging!(error, Type::Cmd, "[导入订阅] 下载失败: {}", e);
+            let err_str = e.to_string();
+            if err_str.contains("SUBSCRIPTION_NEED_PASSWORD") {
+                logging!(info, Type::Cmd, "[导入订阅] 加密订阅，请输入网站登录密码");
+            } else {
+                logging!(error, Type::Cmd, "[导入订阅] 下载失败: {}", e);
+            }
             return Err(format!("导入订阅失败: {}", e).into());
         }
     };

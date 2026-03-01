@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "Import failed, retrying with Clash proxy...",
         "importFail": "Import failed even with Clash proxy",
+        "encryptedSubscriptionPrompt": "Зашифрованная подписка. Введите пароль входа на сайт",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "Профиль изменен",
@@ -110,8 +111,8 @@
         "useClashProxy": "Использовать прокси Clash для обновления",
         "acceptInvalidCerts": "Принимать недействительные сертификаты (ОПАСНО)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Пароль подписки",
-        "loginPasswordPlaceholder": "Для шифрованной подписки (Subscription-Encryption)",
+        "loginPassword": "Пароль входа на сайт",
+        "loginPasswordPlaceholder": "Пароль входа на сайт аэропорта",
         "loginPasswordWrongHint": "Неверный пароль, попробуйте снова",
         "loginPasswordDialogTitle": "Пароль входа на сайт"
       },

@@ -16,6 +16,8 @@
     "refreshPage": "重新整理頁面",
     "showDetails": "顯示詳情",
     "hideDetails": "隱藏詳情",
+    "showPassword": "顯示密碼",
+    "hidePassword": "隱藏密碼",
     "listView": "列表檢視",
     "tableView": "表格檢視",
     "pause": "暫停",

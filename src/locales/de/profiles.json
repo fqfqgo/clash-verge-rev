@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "Import des Abonnements fehlgeschlagen. Versuche es mit dem Clash-Proxy erneut...",
         "importFail": "Import des Abonnements auch mit Clash-Proxy fehlgeschlagen",
+        "encryptedSubscriptionPrompt": "Verschlüsseltes Abonnement. Bitte geben Sie das Website-Anmeldepasswort ein",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "Abonnement gewechselt",
@@ -110,8 +111,8 @@
         "useClashProxy": "Kernel-Proxy zur Aktualisierung verwenden",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Abonnement-Anmeldepasswort",
-        "loginPasswordPlaceholder": "Für verschlüsseltes Abonnement (Subscription-Encryption)",
+        "loginPassword": "Website-Anmeldepasswort",
+        "loginPasswordPlaceholder": "Ihr Anmeldepasswort für die Airport-Website",
         "loginPasswordWrongHint": "Falsches Passwort, bitte erneut versuchen",
         "loginPasswordDialogTitle": "Website-Anmeldepasswort"
       },

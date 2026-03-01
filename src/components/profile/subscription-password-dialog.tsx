@@ -4,8 +4,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
+  InputAdornment,
   TextField,
 } from "@mui/material";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -43,6 +47,7 @@ export function SubscriptionPasswordDialog({
 }: SubscriptionPasswordDialogProps) {
   const { t } = useTranslation();
   const [password, setPassword] = useState(initialValue);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleConfirm = () => {
     onConfirm(password);
@@ -65,7 +70,7 @@ export function SubscriptionPasswordDialog({
           autoFocus
           fullWidth
           size="small"
-          type="password"
+          type={showPassword ? "text" : "password"}
           label={t("profiles.modals.profileForm.fields.loginPassword")}
           placeholder={t(
             "profiles.modals.profileForm.fields.loginPasswordPlaceholder",
@@ -81,6 +86,29 @@ export function SubscriptionPasswordDialog({
             if (e.key === "Enter") handleConfirm();
           }}
           onChange={(e) => setPassword(e.target.value)}
+          slotProps={{
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword((v) => !v)}
+                    edge="end"
+                    aria-label={t(
+                      showPassword
+                        ? "shared.actions.hidePassword"
+                        : "shared.actions.showPassword",
+                    )}
+                  >
+                    {showPassword ? (
+                      <VisibilityOff fontSize="small" />
+                    ) : (
+                      <Visibility fontSize="small" />
+                    )}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
         />
       </DialogContent>
       <DialogActions>

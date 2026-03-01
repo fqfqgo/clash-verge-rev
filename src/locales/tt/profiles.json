@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "Import failed, retrying with Clash proxy...",
         "importFail": "Import failed even with Clash proxy",
+        "encryptedSubscriptionPrompt": "Шифрланган язма. Сайт керү паролен кертегез",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "Профиль алмаштырылды",
@@ -110,8 +111,8 @@
         "useClashProxy": "Clash прокси кулланып яңарту",
         "acceptInvalidCerts": "Дөрес булмаган сертификатларны кабул итү (Куркыныч)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Язма пароль",
-        "loginPasswordPlaceholder": "Шифрланган язма өчен (Subscription-Encryption)",
+        "loginPassword": "Сайт керү пароле",
+        "loginPasswordPlaceholder": "Аэропорт сайты керү пароле",
         "loginPasswordWrongHint": "Пароль ялгыш, тагын бер тапкыр сынап карагыз",
         "loginPasswordDialogTitle": "Сайт керү пароле"
       },

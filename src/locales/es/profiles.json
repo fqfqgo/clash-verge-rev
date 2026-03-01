@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "Error al importar la suscripción. Intentando con el proxy de Clash...",
         "importFail": "Error al importar incluso con el proxy de Clash",
+        "encryptedSubscriptionPrompt": "Suscripción cifrada. Introduzca la contraseña de acceso al sitio",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "Suscripción cambiada",
@@ -110,8 +111,8 @@
         "useClashProxy": "Usar proxy del núcleo para actualizar",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Contraseña de suscripción",
-        "loginPasswordPlaceholder": "Para suscripción cifrada (Subscription-Encryption)",
+        "loginPassword": "Contraseña de acceso al sitio",
+        "loginPasswordPlaceholder": "Tu contraseña de acceso del sitio del aeropuerto",
         "loginPasswordWrongHint": "Contraseña incorrecta, inténtelo de nuevo",
         "loginPasswordDialogTitle": "Contraseña de acceso al sitio"
       },

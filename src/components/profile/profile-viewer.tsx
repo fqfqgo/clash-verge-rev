@@ -1,6 +1,7 @@
 import {
   Box,
   FormControl,
+  IconButton,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -8,6 +9,8 @@ import {
   styled,
   TextField,
 } from "@mui/material";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useLockFn } from "ahooks";
 import type { Ref } from "react";
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
@@ -40,6 +43,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
   const [open, setOpen] = useState(false);
   const [openType, setOpenType] = useState<"new" | "edit">("new");
   const [loading, setLoading] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const { profiles } = useProfiles();
 
   // file input
@@ -332,12 +336,37 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               <TextField
                 {...text}
                 {...field}
-                type="password"
+                type={showLoginPassword ? "text" : "password"}
                 autoComplete="off"
                 label={t("profiles.modals.profileForm.fields.loginPassword")}
                 placeholder={t(
                   "profiles.modals.profileForm.fields.loginPasswordPlaceholder",
                 )}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() =>
+                            setShowLoginPassword((v) => !v)
+                          }
+                          edge="end"
+                          aria-label={t(
+                            showLoginPassword
+                              ? "shared.actions.hidePassword"
+                              : "shared.actions.showPassword",
+                          )}
+                        >
+                          {showLoginPassword ? (
+                            <VisibilityOff fontSize="small" />
+                          ) : (
+                            <Visibility fontSize="small" />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               />
             )}
           />

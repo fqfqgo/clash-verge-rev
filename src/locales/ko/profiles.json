@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "가져오기에 실패했습니다. Clash 프록시로 다시 시도 중...",
         "importFail": "Clash 프록시로도 가져오기에 실패했습니다",
+        "encryptedSubscriptionPrompt": "암호화된 구독입니다. 웹사이트 로그인 비밀번호를 입력하세요",
         "importNeedsRefresh": "프로필을 가져왔지만 수동 새로고침이 필요할 수 있습니다",
         "importSuccess": "프로필을 성공적으로 가져왔습니다. 보이지 않으면 재시작하세요",
         "profileSwitched": "프로필 전환됨",
@@ -110,8 +111,8 @@
         "useClashProxy": "Clash 프록시 사용",
         "acceptInvalidCerts": "잘못된 인증서 허용(위험)",
         "allowAutoUpdate": "자동 업데이트 허용",
-        "loginPassword": "구독 로그인 비밀번호",
-        "loginPasswordPlaceholder": "암호화된 구독용(Subscription-Encryption)",
+        "loginPassword": "웹사이트 로그인 비밀번호",
+        "loginPasswordPlaceholder": "공항 사이트 로그인 비밀번호",
         "loginPasswordWrongHint": "비밀번호가 올바르지 않습니다. 다시 시도하세요",
         "loginPasswordDialogTitle": "웹사이트 로그인 비밀번호"
       },

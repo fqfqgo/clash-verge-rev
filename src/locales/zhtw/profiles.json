@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "訂閱匯入失敗，嘗試使用 Clash 代理匯入",
         "importFail": "使用 Clash 代理匯入訂閱也失敗",
+        "encryptedSubscriptionPrompt": "加密訂閱，請輸入網站登入密碼",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "訂閱已切換",
@@ -110,8 +111,8 @@
         "useClashProxy": "使用內核代理更新",
         "acceptInvalidCerts": "允許無效憑證（危險）",
         "allowAutoUpdate": "允許自動更新",
-        "loginPassword": "訂閱登入密碼",
-        "loginPasswordPlaceholder": "用於解密加密訂閱（Subscription-Encryption）",
+        "loginPassword": "網站登入密碼",
+        "loginPasswordPlaceholder": "你在機場網站的登入密碼",
         "loginPasswordWrongHint": "密碼錯誤，請重試",
         "loginPasswordDialogTitle": "網站登入密碼"
       },

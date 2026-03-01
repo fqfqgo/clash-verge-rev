@@ -476,6 +476,7 @@ impl PrfItem {
                 proxies,
                 groups,
                 allow_auto_update,
+                login_password: option.and_then(|o| o.login_password.clone()),
                 ..PrfOption::default()
             }),
             home,

@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "Import failed, retrying with Clash proxy...",
         "importFail": "Import failed even with Clash proxy",
+        "encryptedSubscriptionPrompt": "Langganan terenkripsi. Masukkan kata sandi login situs",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "Profil Beralih",
@@ -110,8 +111,8 @@
         "useClashProxy": "Gunakan Proksi Clash",
         "acceptInvalidCerts": "Terima Sertifikat Tidak Valid (Bahaya)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Kata sandi langganan",
-        "loginPasswordPlaceholder": "Untuk langganan terenkripsi (Subscription-Encryption)",
+        "loginPassword": "Kata sandi login situs",
+        "loginPasswordPlaceholder": "Kata sandi login situs bandara Anda",
         "loginPasswordWrongHint": "Kata sandi salah, silakan coba lagi",
         "loginPasswordDialogTitle": "Kata sandi login situs"
       },

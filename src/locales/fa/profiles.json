@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "Import failed, retrying with Clash proxy...",
         "importFail": "Import failed even with Clash proxy",
+        "encryptedSubscriptionPrompt": "اشتراک رمزگذاری‌شده. لطفاً رمز ورود وب‌سایت را وارد کنید",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "پروفایل تغییر یافت",
@@ -110,8 +111,8 @@
         "useClashProxy": "استفاده از پراکسی Clash",
         "acceptInvalidCerts": "پذیرش گواهی‌نامه‌های نامعتبر (خطرناک)",
         "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "رمز ورود اشتراک",
-        "loginPasswordPlaceholder": "برای اشتراک رمزگذاری‌شده (Subscription-Encryption)",
+        "loginPassword": "رمز ورود وب‌سایت",
+        "loginPasswordPlaceholder": "رمز ورود سایت فرودگاه شما",
         "loginPasswordWrongHint": "رمز اشتباه است، دوباره تلاش کنید",
         "loginPasswordDialogTitle": "رمز ورود وب‌سایت"
       },

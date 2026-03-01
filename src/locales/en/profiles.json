@@ -33,6 +33,7 @@
       "notifications": {
         "importRetry": "Import failed, retrying with Clash proxy...",
         "importFail": "Import failed even with Clash proxy",
+        "encryptedSubscriptionPrompt": "Encrypted subscription, please enter website login password",
         "importNeedsRefresh": "Profile imported but may need manual refresh",
         "importSuccess": "Profile imported successfully, please restart if not visible",
         "profileSwitched": "Profile Switched",
@@ -105,8 +106,8 @@
         "description": "Descriptions",
         "subscriptionUrl": "Subscription URL",
         "httpTimeout": "HTTP Request Timeout",
-        "loginPassword": "Subscription Login Password",
-        "loginPasswordPlaceholder": "For encrypted subscription (Subscription-Encryption)",
+        "loginPassword": "Website login password",
+        "loginPasswordPlaceholder": "Your login password for the airport website",
         "loginPasswordWrongHint": "Incorrect password, please try again",
         "loginPasswordDialogTitle": "Website login password",
         "updateInterval": "Update Interval",
