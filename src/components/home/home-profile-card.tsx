@@ -339,7 +339,9 @@ export const HomeProfileCard = ({
           );
           if (password === null) break;
           option = { ...option, login_password: password };
-          await patchProfile(current.uid, { login_password: password });
+          await patchProfile(current.uid, {
+            option: { ...current.option, login_password: password },
+          });
         }
       }
     } finally {

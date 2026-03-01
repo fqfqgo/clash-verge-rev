@@ -400,7 +400,9 @@ export const ProfileItem = (props: Props) => {
           );
           if (password === null) break;
           currentOption = { ...currentOption, login_password: password };
-          await patchProfile(itemData.uid, { login_password: password });
+          await patchProfile(itemData.uid, {
+            option: { ...itemData.option, login_password: password },
+          });
         }
       }
     } catch {
