@@ -1,3 +1,11 @@
+## v2.4.18
+
+### 🐞 修复问题
+
+- 修复 Release 工作流中 Windows/Linux 构建误传 `--skip-macos-signing` 导致构建失败
+
+---
+
 ## v2.4.17
 
 ### ✨ 新增功能
