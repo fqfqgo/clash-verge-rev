@@ -85,8 +85,8 @@ importers:
         specifier: 1.11.19
         version: 1.11.19
       foxact:
-        specifier: ^0.2.52
-        version: 0.2.52(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: ^0.2.54
+        version: 0.2.54(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       foxts:
         specifier: ^5.2.1
         version: 5.2.1
@@ -143,7 +143,7 @@ importers:
         version: 2.4.0(react@19.2.4)
       tauri-plugin-mihomo-api:
         specifier: github:clash-verge-rev/tauri-plugin-mihomo#main
-        version: https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b
+        version: https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/622c8dc205de6670057c894180237d2b250b9c16
       types-pac:
         specifier: ^1.0.3
         version: 1.0.3
@@ -2605,6 +2605,9 @@ packages:
   event-emitter@0.3.5:
     resolution: {integrity: sha512-D9rRn9y7kLPnJ+hMq7S/nhvoKwwvVJahBi2BPmx3bvbsEdK3W9ii8cBSGjP+72/LnM4n6fo3+dkCX5FeTQruXA==}
 
+  event-target-bus@1.0.0:
+    resolution: {integrity: sha512-uPcWKbj/BJU3Tbw9XqhHqET4/LBOhvv3/SJWr7NksxA6TC5YqBpaZgawE9R+WpYFCBFSAE4Vun+xQS6w4ABdlA==}
+
   eventemitter3@5.0.4:
     resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
@@ -2681,8 +2684,8 @@ packages:
     resolution: {integrity: sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g==}
     engines: {node: '>=12.20.0'}
 
-  foxact@0.2.52:
-    resolution: {integrity: sha512-cc3ydJkM/mYkof1/ofI4VlVAiRyfsSDsHRC4UIAXQcnUXCuo0rXM66Zy1ggdxAXL03ikHnh3bPnQ7AYuI/Yzow==}
+  foxact@0.2.54:
+    resolution: {integrity: sha512-zdUecCDbDk5qGo4r4bV3hk91fj3ZJtVvn56Oy1NDeA10UfKFETeZu5mft7fq23eOOQLlmxmuoCF2cGEiYmw/dQ==}
     peerDependencies:
       react: '*'
       react-dom: '*'
@@ -3554,9 +3557,9 @@ packages:
     resolution: {integrity: sha512-8mOPs1//5q/rlkNSPcCegA6hiHJYDmSLEI8aMH/CdSQJNWztHC9WHNam5zdQlfpTwB9Xp7IBEsHfV5LKMJGVAw==}
     engines: {node: '>=18'}
 
-  tauri-plugin-mihomo-api@https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b:
-    resolution: {tarball: https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b}
-    version: 0.1.5
+  tauri-plugin-mihomo-api@https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/622c8dc205de6670057c894180237d2b250b9c16:
+    resolution: {tarball: https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/622c8dc205de6670057c894180237d2b250b9c16}
+    version: 0.1.7
 
   terser@5.46.0:
     resolution: {integrity: sha512-jTwoImyr/QbOWFFso3YoU3ik0jBBDJ6JTOQiy/J2YxVJdZCc+5u7skhNwiOR3FQIygFqVUPHl7qbbxtjW2K3Qg==}
@@ -6276,6 +6279,8 @@ snapshots:
       d: 1.0.2
       es5-ext: 0.10.64
 
+  event-target-bus@1.0.0: {}
+
   eventemitter3@5.0.4: {}
 
   ext@1.7.0:
@@ -6339,9 +6344,10 @@ snapshots:
     dependencies:
       fetch-blob: 3.2.0
 
-  foxact@0.2.52(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  foxact@0.2.54(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       client-only: 0.0.1
+      event-target-bus: 1.0.0
       server-only: 0.0.1
     optionalDependencies:
       react: 19.2.4
@@ -7388,7 +7394,7 @@ snapshots:
       minizlib: 3.1.0
       yallist: 5.0.0
 
-  tauri-plugin-mihomo-api@https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/1cc80bc0fbe1245315617f4cecd93710a152325b:
+  tauri-plugin-mihomo-api@https://codeload.github.com/clash-verge-rev/tauri-plugin-mihomo/tar.gz/622c8dc205de6670057c894180237d2b250b9c16:
     dependencies:
       '@tauri-apps/api': 2.10.1
 
