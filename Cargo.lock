@@ -1127,7 +1127,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "clash-verge"
-version = "2.4.21"
+version = "2.4.22"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -1199,7 +1199,7 @@ dependencies = [
  "warp",
  "windows 0.62.2",
  "winreg 0.55.0",
- "zip 8.0.0",
+ "zip 8.2.0",
 ]
 
 [[package]]
@@ -10296,9 +10296,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "8.0.0"
+version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79b32dd4ad3aca14ae109f8cce0495ac1c57f6f4f00ad459a40e582f89440d97"
+checksum = "b680f2a0cd479b4cff6e1233c483fdead418106eae419dc60200ae9850f6d004"
 dependencies = [
  "aes",
  "bzip2",
