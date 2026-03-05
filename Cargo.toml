@@ -58,7 +58,7 @@ tauri-plugin-clipboard-manager = "2.3.2"
 parking_lot = { version = "0.12.5", features = ["hardware-lock-elision"] }
 anyhow = "1.0.101"
 criterion = { version = "0.8.2", features = ["async_tokio"] }
-tokio = { version = "1.49.0", features = [
+tokio = { version = "1.50.0", features = [
   "rt-multi-thread",
   "macros",
   "time",
