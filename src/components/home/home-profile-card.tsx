@@ -24,11 +24,11 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 
+import { SubscriptionPasswordDialog } from "@/components/profile/subscription-password-dialog";
 import {
-  SubscriptionPasswordDialog,
   isSubscriptionPasswordError,
   isSubscriptionWrongPassword,
-} from "@/components/profile/subscription-password-dialog";
+} from "@/components/profile/subscription-password-utils";
 import { useAppData } from "@/providers/app-data-context";
 import { openWebUrl, patchProfile, updateProfile } from "@/services/cmds";
 import { showNotice } from "@/services/notice-service";
@@ -437,9 +437,7 @@ export const HomeProfileCard = ({
           open={subscriptionPwDialog.open}
           wrongPassword={subscriptionPwDialog.wrongPassword}
           initialValue={subscriptionPwDialog.initialValue}
-          onConfirm={(password) =>
-            subscriptionPwDialog.resolve(password)
-          }
+          onConfirm={(password) => subscriptionPwDialog.resolve(password)}
           onCancel={() => subscriptionPwDialog.resolve(null)}
         />
       )}

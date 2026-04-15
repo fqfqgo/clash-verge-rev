@@ -25,13 +25,13 @@ import { mutate } from "swr";
 
 import { ConfirmViewer } from "@/components/profile/confirm-viewer";
 import { EditorViewer } from "@/components/profile/editor-viewer";
-import {
-  SubscriptionPasswordDialog,
-  isSubscriptionPasswordError,
-  isSubscriptionWrongPassword,
-} from "@/components/profile/subscription-password-dialog";
 import { GroupsEditorViewer } from "@/components/profile/groups-editor-viewer";
 import { RulesEditorViewer } from "@/components/profile/rules-editor-viewer";
+import { SubscriptionPasswordDialog } from "@/components/profile/subscription-password-dialog";
+import {
+  isSubscriptionPasswordError,
+  isSubscriptionWrongPassword,
+} from "@/components/profile/subscription-password-utils";
 import {
   viewProfile,
   readProfileFile,
@@ -960,9 +960,7 @@ export const ProfileItem = (props: Props) => {
           open={subscriptionPwDialog.open}
           wrongPassword={subscriptionPwDialog.wrongPassword}
           initialValue={subscriptionPwDialog.initialValue}
-          onConfirm={(password) =>
-            subscriptionPwDialog.resolve(password)
-          }
+          onConfirm={(password) => subscriptionPwDialog.resolve(password)}
           onCancel={() => subscriptionPwDialog.resolve(null)}
         />
       )}

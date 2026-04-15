@@ -43,11 +43,11 @@ import {
   ProfileViewer,
   ProfileViewerRef,
 } from "@/components/profile/profile-viewer";
+import { SubscriptionPasswordDialog } from "@/components/profile/subscription-password-dialog";
 import {
-  SubscriptionPasswordDialog,
   isSubscriptionPasswordError,
   isSubscriptionWrongPassword,
-} from "@/components/profile/subscription-password-dialog";
+} from "@/components/profile/subscription-password-utils";
 import { ConfigViewer } from "@/components/setting/mods/config-viewer";
 import { useListen } from "@/hooks/use-listen";
 import { useProfiles } from "@/hooks/use-profiles";
@@ -321,14 +321,18 @@ const ProfilePage = () => {
 
     const tryImportWithPassword = async (
       baseOption: ImportOption = {},
-    ): Promise<{ ok: true } | { ok: false; needPassword: boolean; err: unknown }> => {
+    ): Promise<
+      { ok: true } | { ok: false; needPassword: boolean; err: unknown }
+    > => {
       try {
         await importProfile(url, {
           with_proxy: true,
           self_proxy: false,
           ...baseOption,
         });
-        await handleImportSuccess("shared.feedback.notifications.importSuccess");
+        await handleImportSuccess(
+          "shared.feedback.notifications.importSuccess",
+        );
         return { ok: true };
       } catch (err) {
         if (isSubscriptionPasswordError(err)) {
@@ -1174,9 +1178,7 @@ const ProfilePage = () => {
           open={subscriptionPwDialog.open}
           wrongPassword={subscriptionPwDialog.wrongPassword}
           initialValue={subscriptionPwDialog.initialValue}
-          onConfirm={(password) =>
-            subscriptionPwDialog.resolve(password)
-          }
+          onConfirm={(password) => subscriptionPwDialog.resolve(password)}
           onCancel={() => subscriptionPwDialog.resolve(null)}
         />
       )}

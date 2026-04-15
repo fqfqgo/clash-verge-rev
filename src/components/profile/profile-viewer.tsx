@@ -1,3 +1,5 @@
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import {
   Box,
   FormControl,
@@ -9,8 +11,6 @@ import {
   styled,
   TextField,
 } from "@mui/material";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useLockFn } from "ahooks";
 import type { Ref } from "react";
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
@@ -347,9 +347,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton
-                          onClick={() =>
-                            setShowLoginPassword((v) => !v)
-                          }
+                          onClick={() => setShowLoginPassword((v) => !v)}
                           edge="end"
                           aria-label={t(
                             showLoginPassword
