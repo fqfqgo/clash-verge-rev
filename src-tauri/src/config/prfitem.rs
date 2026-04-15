@@ -6,9 +6,9 @@ use crate::{
         tmpl,
     },
 };
-use aes::cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
+use aes::cipher::{BlockDecryptMut as _, KeyIvInit as _, block_padding::Pkcs7};
 use anyhow::{Context as _, Result, bail};
-use base64::Engine;
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
@@ -394,7 +394,7 @@ impl PrfItem {
         // Subscription-Encryption: decrypt body when present and login_password is set
         let encrypted = header
             .iter()
-            .find(|(k, _)| k.as_str().to_ascii_lowercase() == "subscription-encryption")
+            .find(|(k, _)| k.as_str().eq_ignore_ascii_case("subscription-encryption"))
             .and_then(|(_, v)| v.to_str().ok())
             .map(|v| v.trim().eq_ignore_ascii_case("true"))
             .unwrap_or(false);

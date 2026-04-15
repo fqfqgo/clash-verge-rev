@@ -71,16 +71,16 @@ pub async fn launch_browser_with_proxy() -> CmdResult<()> {
             r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe".into(),
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe".into(),
         ];
-        if let Ok(local) = std::env::var("LOCALAPPDATA") {
-            if !local.is_empty() {
-                candidates.push(
-                    std::path::PathBuf::from(local)
-                        .join("Microsoft")
-                        .join("Edge")
-                        .join("Application")
-                        .join("msedge.exe"),
-                );
-            }
+        if let Ok(local) = std::env::var("LOCALAPPDATA")
+            && !local.is_empty()
+        {
+            candidates.push(
+                std::path::PathBuf::from(local)
+                    .join("Microsoft")
+                    .join("Edge")
+                    .join("Application")
+                    .join("msedge.exe"),
+            );
         }
         for exe_path in candidates {
             if exe_path.exists() {
@@ -107,7 +107,7 @@ pub async fn launch_browser_with_proxy() -> CmdResult<()> {
         if status.is_ok() {
             return Ok(());
         }
-        return Err("Could not start browser (tried Edge). Install Microsoft Edge.".into());
+        Err("Could not start browser (tried Edge). Install Microsoft Edge.".into())
     }
 
     #[cfg(target_os = "macos")]
