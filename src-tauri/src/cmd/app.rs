@@ -74,19 +74,18 @@ pub async fn launch_browser_with_proxy() -> CmdResult<()> {
         if let Ok(local) = std::env::var("LOCALAPPDATA") {
             if !local.is_empty() {
                 candidates.push(
-                    std::path::PathBuf::from(local).join("Microsoft").join("Edge").join("Application").join("msedge.exe"),
+                    std::path::PathBuf::from(local)
+                        .join("Microsoft")
+                        .join("Edge")
+                        .join("Application")
+                        .join("msedge.exe"),
                 );
             }
         }
         for exe_path in candidates {
             if exe_path.exists() {
                 let status = Command::new(&exe_path)
-                    .args([
-                        "--new-window",
-                        &user_data_arg,
-                        &proxy_arg,
-                        url,
-                    ])
+                    .args(["--new-window", &user_data_arg, &proxy_arg, url])
                     .spawn();
                 if status.is_ok() {
                     return Ok(());

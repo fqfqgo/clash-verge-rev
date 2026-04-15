@@ -181,7 +181,8 @@ async fn perform_profile_update(
     }
 
     let err_str = last_err.to_string();
-    let is_password_error = err_str.contains("SUBSCRIPTION_NEED_PASSWORD") || err_str.contains("SUBSCRIPTION_WRONG_PASSWORD");
+    let is_password_error =
+        err_str.contains("SUBSCRIPTION_NEED_PASSWORD") || err_str.contains("SUBSCRIPTION_WRONG_PASSWORD");
     if is_password_error {
         return Err(last_err);
     }

@@ -6,7 +6,7 @@ use crate::{
         tmpl,
     },
 };
-use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
+use aes::cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
 use anyhow::{Context as _, Result, bail};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
