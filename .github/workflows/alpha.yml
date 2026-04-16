@@ -306,7 +306,7 @@ jobs:
         with:
           node-version: "24.13.1"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
@@ -373,7 +373,7 @@ jobs:
           node-version: "24.13.1"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
@@ -500,7 +500,7 @@ jobs:
         with:
           node-version: "24.13.1"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
