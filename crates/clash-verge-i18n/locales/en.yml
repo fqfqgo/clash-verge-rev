@@ -22,18 +22,18 @@ notifications:
     body: Profile Reactivated.
   appQuit:
     title: About to Exit
-    body: Clash Verge is about to exit.
+    body: Clash Verge for v2free is about to exit.
   appHidden:
     title: Application Hidden
-    body: Clash Verge is running in the background.
+    body: Clash Verge for v2free is running in the background.
   updateReady:
-    title: Clash Verge Update
+    title: Clash Verge for v2free Update
     body: A new version (v{version}) has been downloaded and is ready to install.
     installNow: Install Now
     later: Later
 service:
-  adminInstallPrompt: Installing the Clash Verge service requires administrator privileges.
-  adminUninstallPrompt: Uninstalling the Clash Verge service requires administrator privileges.
+  adminInstallPrompt: Installing the Clash Verge for v2free service requires administrator privileges.
+  adminUninstallPrompt: Uninstalling the Clash Verge for v2free service requires administrator privileges.
 tray:
   dashboard: Dashboard
   ruleMode: Rule Mode

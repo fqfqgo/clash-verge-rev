@@ -41,9 +41,14 @@ async function resolvePortable() {
     await fsp.writeFile(path.join(configDir, 'PORTABLE'), '')
   }
 
+  const tauriConf = JSON.parse(
+    await fsp.readFile('./src-tauri/tauri.conf.json', 'utf8'),
+  )
+  const appExe = `${tauriConf.productName}.exe`
+
   const zip = new AdmZip()
 
-  zip.addLocalFile(path.join(releaseDir, 'Clash Verge.exe'))
+  zip.addLocalFile(path.join(releaseDir, appExe))
   zip.addLocalFile(path.join(releaseDir, 'verge-mihomo.exe'))
   zip.addLocalFile(path.join(releaseDir, 'verge-mihomo-alpha.exe'))
   zip.addLocalFolder(path.join(releaseDir, 'resources'), 'resources')
@@ -60,7 +65,7 @@ async function resolvePortable() {
   const packageJson = require('../package.json')
   const { version } = packageJson
 
-  const zipFile = `Clash.Verge_${version}_${arch}_fixed_webview2_portable.zip`
+  const zipFile = `Clash.Verge.for.v2free_${version}_${arch}_fixed_webview2_portable.zip`
   zip.writeZip(zipFile)
 
   console.log('[INFO]: create portable zip successfully')

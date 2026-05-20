@@ -101,20 +101,20 @@ jobs:
 
           ### Windows (不再支持Win7)
           #### 正常版本(推荐)
-          - [64位(常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_x64-setup.exe) | [ARM64(不常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_arm64-setup.exe)
+          - [64位(常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_x64-setup.exe) | [ARM64(不常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_arm64-setup.exe)
 
           #### 内置Webview2版(体积较大，仅在企业版系统或无法安装webview2时使用)
-          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_x64_fixed_webview2-setup.exe) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_arm64_fixed_webview2-setup.exe)
+          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_x64_fixed_webview2-setup.exe) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_arm64_fixed_webview2-setup.exe)
 
           ### macOS
-          - [Apple M芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_aarch64.dmg) | [Intel芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_x64.dmg)
+          - [Apple M芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_aarch64.dmg) | [Intel芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_x64.dmg)
 
           ### Linux
           #### DEB包(Debian系) 使用 apt ./路径 安装
-          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_amd64.deb) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_arm64.deb) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_armhf.deb)
+          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_amd64.deb) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_arm64.deb) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_armhf.deb)
 
           #### RPM包(Redhat系) 使用 dnf ./路径 安装
-          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge-${{ env.VERSION }}-1.x86_64.rpm) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge-${{ env.VERSION }}-1.aarch64.rpm) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge-${{ env.VERSION }}-1.armhfp.rpm)
+          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free-${{ env.VERSION }}-1.x86_64.rpm) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free-${{ env.VERSION }}-1.aarch64.rpm) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free-${{ env.VERSION }}-1.armhfp.rpm)
 
           ### FAQ
           - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)
@@ -148,7 +148,7 @@ jobs:
           echo "Publishing release $release_id ($release_url) with $asset_count assets."
 
           gh api --method PATCH repos/{owner}/{repo}/releases/"$release_id" \
-            -f name="Clash Verge Rev $TAG_NAME" \
+            -f name="Clash Verge for v2free $TAG_NAME" \
             -F body=@release.txt \
             -F draft=false \
             -F prerelease="$PRERELEASE" \
@@ -237,7 +237,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Clash Verge Rev ${{ github.ref_name }}'
+          releaseName: 'Clash Verge for v2free ${{ github.ref_name }}'
           releaseBody: 'Draft release, will be updated later.'
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
@@ -331,10 +331,12 @@ jobs:
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           APPLE_SIGNING_IDENTITY: '-'
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Clash Verge Rev ${{ github.ref_name }}'
+          releaseName: 'Clash Verge for v2free ${{ github.ref_name }}'
           releaseBody: 'Draft release, will be updated later.'
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
@@ -485,7 +487,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{env.VERSION}}
-          name: 'Clash Verge Rev v${{env.VERSION}}'
+          name: 'Clash Verge for v2free v${{env.VERSION}}'
           body: 'See release notes for detailed changelog.'
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
@@ -602,7 +604,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{steps.build.outputs.appVersion}}
-          name: 'Clash Verge Rev v${{steps.build.outputs.appVersion}}'
+          name: 'Clash Verge for v2free v${{steps.build.outputs.appVersion}}'
           body: 'See release notes for detailed changelog.'
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: true
@@ -685,7 +687,8 @@ jobs:
       - name: Submit to Winget
         uses: vedantmgoyal9/winget-releaser@main
         with:
-          identifier: ClashVergeRev.ClashVergeRev
+          identifier: V2Free.ClashVergeForV2free
+          release-notes-url: https://github.com/fqfqgo/clash-verge-rev/releases/tag/v${{env.VERSION}}
           version: ${{env.VERSION}}
           release-tag: v${{env.VERSION}}
           installers-regex: '_(arm64|x64|x86)-setup\.exe$'
@@ -729,7 +732,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install jq
           echo "VERSION=$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
-          echo "DOWNLOAD_URL=https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
+          echo "DOWNLOAD_URL=https://github.com/fqfqgo/clash-verge-rev/releases/download/v$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
 
       - name: Generate release.txt
@@ -748,20 +751,20 @@ jobs:
 
           ### Windows (不再支持Win7)
           #### 正常版本(推荐)
-          - [64位(常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_x64-setup.exe) | [ARM64(不常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_arm64-setup.exe)
+          - [64位(常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_x64-setup.exe) | [ARM64(不常用)](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_arm64-setup.exe)
 
           #### 内置Webview2版(体积较大，仅在企业版系统或无法安装webview2时使用)
-          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_x64_fixed_webview2-setup.exe) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_arm64_fixed_webview2-setup.exe)
+          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_x64_fixed_webview2-setup.exe) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_arm64_fixed_webview2-setup.exe)
 
           ### macOS
-          - [Apple M芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_aarch64.dmg) | [Intel芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_x64.dmg)
+          - [Apple M芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_aarch64.dmg) | [Intel芯片](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_x64.dmg)
 
           ### Linux
           #### DEB包(Debian系) 使用 apt ./路径 安装
-          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_amd64.deb) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_arm64.deb) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge_${{ env.VERSION }}_armhf.deb)
+          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_amd64.deb) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_arm64.deb) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free_${{ env.VERSION }}_armhf.deb)
 
           #### RPM包(Redhat系) 使用 dnf ./路径 安装
-          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge-${{ env.VERSION }}-1.x86_64.rpm) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge-${{ env.VERSION }}-1.aarch64.rpm) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge-${{ env.VERSION }}-1.armhfp.rpm)
+          - [64位](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free-${{ env.VERSION }}-1.x86_64.rpm) | [ARM64](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free-${{ env.VERSION }}-1.aarch64.rpm) | [ARMv7](${{ env.DOWNLOAD_URL }}/Clash.Verge.for.v2free-${{ env.VERSION }}-1.armhfp.rpm)
 
           ### FAQ
           - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)

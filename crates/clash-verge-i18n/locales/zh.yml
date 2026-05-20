@@ -22,18 +22,18 @@ notifications:
     body: 订阅已激活。
   appQuit:
     title: 即将退出
-    body: Clash Verge 即将退出。
+    body: Clash Verge for v2free 即将退出。
   appHidden:
     title: 应用已隐藏
-    body: Clash Verge 正在后台运行。
+    body: Clash Verge for v2free 正在后台运行。
   updateReady:
-    title: Clash Verge 更新
+    title: Clash Verge for v2free 更新
     body: 新版本 (v{version}) 已下载完成，是否立即安装？
     installNow: 立即安装
     later: 稍后
 service:
-  adminInstallPrompt: 安装 Clash Verge 服务需要管理员权限
-  adminUninstallPrompt: 卸载 Clash Verge 服务需要管理员权限
+  adminInstallPrompt: 安装 Clash Verge for v2free 服务需要管理员权限
+  adminUninstallPrompt: 卸载 Clash Verge for v2free 服务需要管理员权限
 tray:
   dashboard: 仪表板
   ruleMode: 规则模式

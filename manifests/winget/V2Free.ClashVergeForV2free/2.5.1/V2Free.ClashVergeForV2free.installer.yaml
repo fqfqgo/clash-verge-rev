@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
+# Replace InstallerSha256 values after the branded release build completes.
+
+PackageIdentifier: V2Free.ClashVergeForV2free
+PackageVersion: 2.5.1
+InstallerLocale: en-US
+InstallerType: nullsoft
+Scope: machine
+UpgradeBehavior: install
+FileExtensions:
+  - clash
+ProductCode: Clash Verge for v2free
+AppsAndFeaturesEntries:
+  - ProductCode: Clash Verge for v2free
+InstallationMetadata:
+  DefaultInstallLocation: '%ProgramFiles%\Clash Verge for v2free'
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/fqfqgo/clash-verge-rev/releases/download/v2.5.1/Clash.Verge.for.v2free_2.5.1_x64-setup.exe
+    InstallerSha256: PLACEHOLDER_UPDATE_AFTER_RELEASE
+  - Architecture: arm64
+    InstallerUrl: https://github.com/fqfqgo/clash-verge-rev/releases/download/v2.5.1/Clash.Verge.for.v2free_2.5.1_arm64-setup.exe
+    InstallerSha256: PLACEHOLDER_UPDATE_AFTER_RELEASE
+ManifestType: installer
+ManifestVersion: 1.12.0
