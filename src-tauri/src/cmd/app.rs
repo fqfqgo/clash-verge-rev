@@ -1,11 +1,7 @@
 use super::CmdResult;
 use crate::config::Config;
 use crate::core::autostart;
-use crate::{
-    cmd::StringifyErr as _,
-    feat,
-    utils::dirs,
-};
+use crate::{cmd::StringifyErr as _, feat, utils::dirs};
 use smartstring::alias::String;
 use std::process::Command;
 use tauri::{AppHandle, Manager as _};
