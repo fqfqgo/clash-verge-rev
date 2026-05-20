@@ -4,7 +4,7 @@ use crate::core::autostart;
 use crate::{
     cmd::StringifyErr as _,
     feat,
-    utils::dirs::{self, PathBufExec as _},
+    utils::dirs,
 };
 use smartstring::alias::String;
 use std::process::Command;
