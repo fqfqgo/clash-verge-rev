@@ -1,4 +1,11 @@
-﻿## v2.5.2
+﻿## v2.5.3
+
+### 🐞 修复发布
+
+- 启用 `createUpdaterArtifacts`，Release 生成完整 `.sig` 与 `latest.json`（与上游 25 个 Assets 一致）
+- WinGet 首包提交改用 `komac submit`（`V2Free.ClashVergeForV2free`）
+
+## v2.5.2
 
 ### ✨ 品牌与发布
 
