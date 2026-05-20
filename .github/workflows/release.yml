@@ -684,15 +684,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install jq
           echo "VERSION=$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
-      - name: Submit to Winget
-        uses: vedantmgoyal9/winget-releaser@main
-        with:
-          identifier: V2Free.ClashVergeForV2free
-          release-notes-url: https://github.com/fqfqgo/clash-verge-rev/releases/tag/v${{env.VERSION}}
-          version: ${{env.VERSION}}
-          release-tag: v${{env.VERSION}}
-          installers-regex: '_(arm64|x64|x86)-setup\.exe$'
-          token: ${{ secrets.WINGET_TOKEN  }}
+      - uses: cargo-bins/cargo-binstall@main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Install komac
+        run: cargo-binstall komac -y
+        shell: pwsh
+
+      - name: Submit to WinGet
+        shell: pwsh
+        env:
+          VERSION: ${{ env.VERSION }}
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          KOMAC_FORK_OWNER: ${{ github.repository_owner }}
+          KOMAC_CREATED_WITH: Clash Verge for v2free Release
+          KOMAC_CREATED_WITH_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: ./scripts/winget-submit.ps1
 
   notify-telegram:
     if: ${{ !contains(github.ref_name, '-rc') }}

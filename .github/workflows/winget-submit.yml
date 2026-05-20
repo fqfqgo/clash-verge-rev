@@ -1,0 +1,38 @@
+name: WinGet Submit
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version (without v prefix)
+        required: true
+        default: '2.5.2'
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit to WinGet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - uses: cargo-bins/cargo-binstall@main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Install komac
+        run: cargo-binstall komac -y
+        shell: pwsh
+
+      - name: Submit to WinGet
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          KOMAC_FORK_OWNER: ${{ github.repository_owner }}
+          KOMAC_CREATED_WITH: Clash Verge for v2free WinGet Submit
+          KOMAC_CREATED_WITH_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: ./scripts/winget-submit.ps1
