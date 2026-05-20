@@ -60,6 +60,7 @@
     "menu": {
       "home": "Home",
       "select": "Сайлау",
+      "shareQrCode": "Share QR Code",
       "editInfo": "Мәгълүматны үзгәртү",
       "editFile": "Файлны үзгәртү",
       "editRules": "Кагыйдәләрне үзгәртү",
@@ -73,8 +74,8 @@
     },
     "more": {
       "global": {
-        "merge": "Global Merge",
-        "script": "Global Script"
+        "merge": "Global Extend Config",
+        "script": "Global Extend Script"
       },
       "chips": {
         "merge": "Merge",
@@ -106,15 +107,15 @@
         "description": "Тасвирламалар",
         "subscriptionUrl": "Подписка URL-ы",
         "httpTimeout": "HTTP Request Timeout",
+        "loginPassword": "Сайт керү пароле",
+        "loginPasswordPlaceholder": "Аэропорт сайты керү пароле",
+        "loginPasswordWrongHint": "Пароль ялгыш, тагын бер тапкыр сынап карагыз",
+        "loginPasswordDialogTitle": "Сайт керү пароле",
         "updateInterval": "Яңарту интервалы",
         "useSystemProxy": "Системалы проксины кулланып яңарту",
         "useClashProxy": "Clash прокси кулланып яңарту",
         "acceptInvalidCerts": "Дөрес булмаган сертификатларны кабул итү (Куркыныч)",
-        "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Сайт керү пароле",
-        "loginPasswordPlaceholder": "Аэропорт сайты керү пароле",
-        "loginPasswordWrongHint": "Пароль ялгыш, тагын бер тапкыр сынап карагыз",
-        "loginPasswordDialogTitle": "Сайт керү пароле"
+        "allowAutoUpdate": "Allow Auto Update"
       },
       "feedback": {
         "notifications": {
@@ -182,6 +183,9 @@
     },
     "logViewer": {
       "title": "Скрипт консоле"
+    },
+    "qrViewer": {
+      "title": "Subscription QR Code"
     }
   }
 }

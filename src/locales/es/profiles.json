@@ -60,6 +60,7 @@
     "menu": {
       "home": "Hogar",
       "select": "Usar",
+      "shareQrCode": "Share QR Code",
       "editInfo": "Editar información",
       "editFile": "Editar archivo",
       "editRules": "Editar reglas",
@@ -73,8 +74,8 @@
     },
     "more": {
       "global": {
-        "merge": "Global Merge",
-        "script": "Global Script"
+        "merge": "Global Extend Config",
+        "script": "Global Extend Script"
       },
       "chips": {
         "merge": "Merge",
@@ -106,15 +107,15 @@
         "description": "Descripción",
         "subscriptionUrl": "Enlace de suscripción",
         "httpTimeout": "HTTP Request Timeout",
+        "loginPassword": "Contraseña de acceso al sitio",
+        "loginPasswordPlaceholder": "Tu contraseña de acceso del sitio del aeropuerto",
+        "loginPasswordWrongHint": "Contraseña incorrecta, inténtelo de nuevo",
+        "loginPasswordDialogTitle": "Contraseña de acceso al sitio",
         "updateInterval": "Intervalo de actualización",
         "useSystemProxy": "Usar proxy del sistema para actualizar",
         "useClashProxy": "Usar proxy del núcleo para actualizar",
         "acceptInvalidCerts": "Allows Invalid Certificates (Danger)",
-        "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Contraseña de acceso al sitio",
-        "loginPasswordPlaceholder": "Tu contraseña de acceso del sitio del aeropuerto",
-        "loginPasswordWrongHint": "Contraseña incorrecta, inténtelo de nuevo",
-        "loginPasswordDialogTitle": "Contraseña de acceso al sitio"
+        "allowAutoUpdate": "Allow Auto Update"
       },
       "feedback": {
         "notifications": {
@@ -182,6 +183,9 @@
     },
     "logViewer": {
       "title": "Salida de la consola del script"
+    },
+    "qrViewer": {
+      "title": "Subscription QR Code"
     }
   }
 }

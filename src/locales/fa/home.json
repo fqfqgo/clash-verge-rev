@@ -3,6 +3,7 @@
     "tooltips": {
       "lightweightMode": "در فارسی",
       "manual": "راهنما",
+      "launchBrowser": "Launch browser with current proxy",
       "settings": "Home Settings"
     },
     "cards": {

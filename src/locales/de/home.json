@@ -3,6 +3,7 @@
     "tooltips": {
       "lightweightMode": "Leichtgewichtiger Modus",
       "manual": "Bedienungsanleitung",
+      "launchBrowser": "Launch browser with current proxy",
       "settings": "Startseite-Einstellungen"
     },
     "cards": {

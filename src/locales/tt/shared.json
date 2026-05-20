@@ -16,6 +16,8 @@
     "refreshPage": "Refresh Page",
     "showDetails": "Show Details",
     "hideDetails": "Hide Details",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "listView": "Исемлек күзаллау",
     "tableView": "Таблица күзаллау",
     "pause": "Туктау",

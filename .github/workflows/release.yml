@@ -7,16 +7,15 @@ on:
   push:
     # -rc tag 时预览发布, 跳过 telegram 通知、跳过 winget 提交、跳过 latest.json 文件更新
     tags:
-      - "v*.*.*"
+      - 'v*.*.*'
 permissions: write-all
 env:
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: short
   HUSKY: 0
-  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 concurrency:
   # only allow per workflow per commit (and not pr) to run at a time
-  group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
+  group: '${{ github.workflow }} - ${{ github.head_ref || github.ref }}'
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -67,7 +66,7 @@ jobs:
   update_tag:
     name: Update tag
     runs-on: ubuntu-latest
-    needs: [release, release-for-linux-arm, release-for-fixed-webview2]
+    needs: [release, release-macos, release-for-linux-arm, release-for-fixed-webview2]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -120,19 +119,40 @@ jobs:
           ### FAQ
           - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)
 
+          ### 稳定机场VPN推荐
+          - [狗狗加速](https://verge.dginv.click/#/register?code=oaxsAGo6)
+
           Created at ${{ env.BUILDTIME }}.
           EOF
 
-      - name: Upload Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.TAG_NAME }}
-          name: "Clash Verge Rev ${{ env.TAG_NAME }}"
-          body_path: release.txt
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # generate_release_notes: true
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ contains(github.ref_name, '-rc') }}
+        run: |
+          matches=$(gh api repos/{owner}/{repo}/releases --paginate --jq '.[] | select(.tag_name == env.TAG_NAME) | [.id, .draft, (.assets | length), .html_url] | @tsv')
+          release_count=$(grep -c . <<< "$matches" || true)
+
+          if [ "$release_count" -eq 0 ]; then
+            echo "::error::No release found for $TAG_NAME."
+            exit 1
+          fi
+
+          if [ "$release_count" -gt 1 ]; then
+            printf '%s\n' "$matches"
+            echo "::error::Multiple releases found for $TAG_NAME. Merge or delete duplicate releases before rerunning."
+            exit 1
+          fi
+
+          IFS=$'\t' read -r release_id _ asset_count release_url <<< "$matches"
+          echo "Publishing release $release_id ($release_url) with $asset_count assets."
+
+          gh api --method PATCH repos/{owner}/{repo}/releases/"$release_id" \
+            -f name="Clash Verge Rev $TAG_NAME" \
+            -F body=@release.txt \
+            -F draft=false \
+            -F prerelease="$PRERELEASE" \
+            --silent
 
   release:
     name: Release Build
@@ -156,7 +176,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.91.0"
+          toolchain: '1.91.0'
           targets: ${{ matrix.target }}
 
       - name: Add Rust Target
@@ -166,8 +186,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/dev' }}
-          prefix-key: "v1-rust"
-          key: "rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}"
+          prefix-key: 'v1-rust'
+          key: 'rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           workspaces: |
             . -> target
           cache-all-crates: true
@@ -182,9 +202,9 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6
         with:
-          node-version: "24.13.1"
+          node-version: '24.15.0'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
@@ -203,9 +223,9 @@ jobs:
 
       - name: Tauri build
         # 上游 5.24 修改了 latest.json 的生成逻辑，且依赖 tauri-plugin-update 2.10.0 暂未发布，故锁定在 0.5.23 版本
-        uses: tauri-apps/tauri-action@v0.6.1
+        uses: tauri-apps/tauri-action@v0.6.2
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -217,15 +237,29 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Clash Verge Rev ${{ github.ref_name }}"
-          releaseBody: "Draft release, will be updated later."
+          releaseName: 'Clash Verge Rev ${{ github.ref_name }}'
+          releaseBody: 'Draft release, will be updated later.'
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           tauriScript: pnpm
           args: --target ${{ matrix.target }}
           includeUpdaterJson: true
 
-  # macOS 构建：不配置 Apple 证书，产出未签名 .app/.dmg（与 FlClash 一致，用户需在系统里添加信任）
+      - name: Attest Windows bundles
+        if: matrix.os == 'windows-latest'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: target/${{ matrix.target }}/release/bundle/nsis/*setup*
+
+      - name: Attest Linux bundles
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            target/${{ matrix.target }}/release/bundle/deb/*.deb
+            target/${{ matrix.target }}/release/bundle/rpm/*.rpm
+
+  # macOS 构建：不配置 Apple 证书，产出未签名 .app/.dmg（用户需在系统里添加信任）
   release-macos:
     name: Release Build (macOS, unsigned)
     needs: [check_tag_version]
@@ -245,7 +279,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.91.0"
+          toolchain: '1.91.0'
           targets: ${{ matrix.target }}
 
       - name: Add Rust Target
@@ -255,8 +289,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/dev' }}
-          prefix-key: "v1-rust"
-          key: "rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}"
+          prefix-key: 'v1-rust'
+          key: 'rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           workspaces: |
             . -> target
           cache-all-crates: true
@@ -274,9 +308,9 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6
         with:
-          node-version: "24.13.1"
+          node-version: '24.15.0'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
@@ -293,21 +327,25 @@ jobs:
           echo "Rust target ${{ matrix.target }} installed."
 
       - name: Tauri build (macOS, no code signing)
-        uses: tauri-apps/tauri-action@v0.6.1
+        uses: tauri-apps/tauri-action@v0.6.2
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_SIGNING_IDENTITY: "-"
-          # 不传 APPLE_*，产出未签名包，用户安装后需在 系统设置-隐私与安全性 中添加例外
+          APPLE_SIGNING_IDENTITY: '-'
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Clash Verge Rev ${{ github.ref_name }}"
-          releaseBody: "Draft release, will be updated later."
+          releaseName: 'Clash Verge Rev ${{ github.ref_name }}'
+          releaseBody: 'Draft release, will be updated later.'
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           tauriScript: pnpm
           args: --target ${{ matrix.target }}
           includeUpdaterJson: true
+
+      - name: Attest macOS bundles
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
 
   release-for-linux-arm:
     name: Release Build for Linux ARM
@@ -330,7 +368,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.91.0"
+          toolchain: '1.91.0'
           targets: ${{ matrix.target }}
 
       - name: Add Rust Target
@@ -340,8 +378,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/dev' }}
-          prefix-key: "v1-rust"
-          key: "rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}"
+          prefix-key: 'v1-rust'
+          key: 'rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           workspaces: |
             . -> target
           cache-all-crates: true
@@ -350,10 +388,10 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6
         with:
-          node-version: "24.13.1"
+          node-version: '24.15.0'
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
@@ -362,7 +400,7 @@ jobs:
           pnpm i
           pnpm run prebuild ${{ matrix.target }}
 
-      - name: "Setup for linux"
+      - name: 'Setup for linux'
         run: |-
           sudo ls -lR /etc/apt/
 
@@ -392,14 +430,14 @@ jobs:
             patchelf:${{ matrix.arch }} \
             librsvg2-dev:${{ matrix.arch }}
 
-      - name: "Install aarch64 tools"
+      - name: 'Install aarch64 tools'
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt install -y \
             gcc-aarch64-linux-gnu \
             g++-aarch64-linux-gnu
 
-      - name: "Install armv7 tools"
+      - name: 'Install armv7 tools'
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt install -y \
@@ -425,7 +463,7 @@ jobs:
           fi
           pnpm build --target ${{ matrix.target }}
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
@@ -436,13 +474,21 @@ jobs:
           echo "VERSION=$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
 
+      - name: Attest Linux bundles
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            target/${{ matrix.target }}/release/bundle/deb/*.deb
+            target/${{ matrix.target }}/release/bundle/rpm/*.rpm
+
       - name: Upload Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{env.VERSION}}
-          name: "Clash Verge Rev v${{env.VERSION}}"
-          body: "See release notes for detailed changelog."
+          name: 'Clash Verge Rev v${{env.VERSION}}'
+          body: 'See release notes for detailed changelog.'
           token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           files: |
             target/${{ matrix.target }}/release/bundle/deb/*.deb
@@ -469,7 +515,7 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.91.0"
+          toolchain: '1.91.0'
           targets: ${{ matrix.target }}
 
       - name: Add Rust Target
@@ -479,8 +525,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/dev' }}
-          prefix-key: "v1-rust"
-          key: "rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}"
+          prefix-key: 'v1-rust'
+          key: 'rust-shared-stable-${{ matrix.os }}-${{ matrix.target }}'
           workspaces: |
             . -> target
           cache-all-crates: true
@@ -489,9 +535,9 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6
         with:
-          node-version: "24.13.1"
+          node-version: '24.15.0'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
@@ -517,9 +563,9 @@ jobs:
 
       - name: Tauri build
         id: build
-        uses: tauri-apps/tauri-action@v0.6.1
+        uses: tauri-apps/tauri-action@v0.6.2
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
+          NODE_OPTIONS: '--max_old_space_size=4096'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -547,13 +593,19 @@ jobs:
             Rename-Item $file.FullName $newName
           }
 
+      - name: Attest Windows bundles
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: target/${{ matrix.target }}/release/bundle/nsis/*setup*
+
       - name: Upload Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{steps.build.outputs.appVersion}}
-          name: "Clash Verge Rev v${{steps.build.outputs.appVersion}}"
-          body: "See release notes for detailed changelog."
+          name: 'Clash Verge Rev v${{steps.build.outputs.appVersion}}'
+          body: 'See release notes for detailed changelog.'
           token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
           prerelease: ${{ contains(github.ref_name, '-rc') }}
           files: target/${{ matrix.target }}/release/bundle/nsis/*setup*
 
@@ -574,9 +626,9 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6
         with:
-          node-version: "24.13.1"
+          node-version: '24.15.0'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
@@ -600,9 +652,9 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6
         with:
-          node-version: "24.13.1"
+          node-version: '24.15.0'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
@@ -616,8 +668,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   submit-to-winget:
-    # 仅在上游仓库执行；fork 无 WINGET_TOKEN 且无需提交 winget
-    if: ${{ github.repository == 'clash-verge-rev/clash-verge-rev' && !contains(github.ref_name, '-rc') }}
+    if: ${{ !contains(github.ref_name, '-rc') }}
     name: Submit to Winget
     runs-on: ubuntu-latest
     needs: [update_tag, release-update]
@@ -663,9 +714,9 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6
         with:
-          node-version: "24.13.1"
+          node-version: '24.15.0'
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           run_install: false
@@ -678,7 +729,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install jq
           echo "VERSION=$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
-          echo "DOWNLOAD_URL=https://github.com/fqfqgo/clash-verge-rev/releases/download/v$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
+          echo "DOWNLOAD_URL=https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
 
       - name: Generate release.txt
@@ -715,17 +766,14 @@ jobs:
           ### FAQ
           - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)
 
+          ### 稳定机场VPN推荐
+          - [狗狗加速](https://verge.dginv.click/#/register?code=oaxsAGo6)
+
           Created at ${{ env.BUILDTIME }}.
           EOF
 
       - name: Send Telegram Notification
-        run: |
-          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
-            echo "Telegram token missing; skip notification."
-            exit 0
-          fi
-
-          node scripts/telegram.mjs
+        run: node scripts/telegram.mjs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           BUILD_TYPE: release

@@ -3,6 +3,7 @@
     "tooltips": {
       "lightweightMode": "Hafif Mod",
       "manual": "Kılavuz",
+      "launchBrowser": "Launch browser with current proxy",
       "settings": "Ana Sayfa Ayarları"
     },
     "cards": {

@@ -1,6 +1,6 @@
 use crate::{
     config::{Config, IVerge},
-    core::{CoreManager, handle, hotkey, logger::Logger, sysopt, tray},
+    core::{CoreManager, autostart, handle, hotkey, logger::Logger, sysopt, tray},
     module::{auto_backup::AutoBackupManager, lightweight},
 };
 use anyhow::Result;
@@ -20,16 +20,10 @@ pub async fn patch_clash(patch: &Mapping) -> Result<()> {
             CoreManager::global().restart_core().await?;
         } else {
             if patch.get("mode").is_some() {
-                logging_error!(Type::Tray, tray::Tray::global().update_menu().await);
-                logging_error!(
-                    Type::Tray,
-                    tray::Tray::global()
-                        .update_icon(&Config::verge().await.data_arc())
-                        .await
-                );
+                tray::Tray::global().update_menu_and_icon().await;
             }
             Config::runtime().await.edit_draft(|d| d.patch_config(patch));
-            CoreManager::global().update_config().await?;
+            CoreManager::global().update_config_checked().await?;
         }
         handle::Handle::refresh_clash();
         <Result<()>>::Ok(())
@@ -102,7 +96,10 @@ fn determine_update_flags(patch: &IVerge) -> UpdateFlags {
     let socks_port = patch.verge_socks_port;
     let http_enabled = patch.verge_http_enabled;
     let http_port = patch.verge_port;
+    #[cfg(target_os = "macos")]
     let enable_tray_speed = patch.enable_tray_speed;
+    #[cfg(not(target_os = "macos"))]
+    let enable_tray_speed: Option<bool> = None;
     // let enable_tray_icon = patch.enable_tray_icon;
     let enable_global_hotkey = patch.enable_global_hotkey;
     let tray_event = &patch.tray_event;
@@ -138,6 +135,7 @@ fn determine_update_flags(patch: &IVerge) -> UpdateFlags {
     #[cfg(target_os = "linux")]
     {
         restart_core_needed |= tproxy_enabled.is_some() || tproxy_port.is_some();
+        restart_core_needed |= tun_mode == Some(true);
     }
 
     let mut update_flags = UpdateFlags::empty();
@@ -208,7 +206,7 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         CoreManager::global().restart_core().await?;
     }
     if update_flags.contains(UpdateFlags::CLASH_CONFIG) {
-        CoreManager::global().update_config().await?;
+        CoreManager::global().update_config_checked().await?;
         handle::Handle::refresh_clash();
     }
     if update_flags.contains(UpdateFlags::VERGE_CONFIG) {
@@ -218,7 +216,7 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         handle::Handle::refresh_verge();
     }
     if update_flags.contains(UpdateFlags::LAUNCH) {
-        sysopt::Sysopt::global().update_launch().await?;
+        autostart::update_launch().await?;
     }
     if update_flags.contains(UpdateFlags::LANGUAGE)
         && let Some(language) = &patch.language
@@ -241,6 +239,10 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         tray::Tray::global()
             .update_icon(&Config::verge().await.latest_arc())
             .await?;
+        #[cfg(target_os = "macos")]
+        if patch.enable_tray_speed.is_some() {
+            tray::Tray::global().update_speed_task(patch.enable_tray_speed.unwrap_or(false));
+        }
     }
     if update_flags.contains(UpdateFlags::SYSTRAY_TOOLTIP) {
         tray::Tray::global().update_tooltip().await?;

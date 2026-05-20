@@ -8,10 +8,12 @@ notifications:
     body: Beralih ke {mode}.
   systemProxyToggled:
     title: Proksi Sistem
-    body: Status proksi sistem telah diperbarui.
+    'on': System proxy has been enabled.
+    'off': System proxy has been disabled.
   tunModeToggled:
     title: Mode TUN
-    body: Status mode TUN telah diperbarui.
+    'on': TUN mode has been enabled.
+    'off': TUN mode has been disabled.
   lightweightModeEntered:
     title: Mode Ringan
     body: Masuk ke mode ringan.
@@ -24,6 +26,11 @@ notifications:
   appHidden:
     title: Aplikasi Disembunyikan
     body: Clash Verge berjalan di latar belakang.
+  updateReady:
+    title: Clash Verge Update
+    body: A new version (v{version}) has been downloaded and is ready to install.
+    installNow: Install Now
+    later: Later
 service:
   adminInstallPrompt: Menginstal layanan Clash Verge memerlukan hak administrator.
   adminUninstallPrompt: Menghapus instalasi layanan Clash Verge memerlukan hak administrator.

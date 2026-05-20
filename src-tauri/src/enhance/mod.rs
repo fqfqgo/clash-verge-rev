@@ -16,10 +16,10 @@ use self::{
 use crate::utils::dirs;
 use crate::{config::Config, utils::tmpl};
 use crate::{config::IVerge, constants};
+use anyhow::{Context as _, Result};
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::{Mapping, Value};
 use smartstring::alias::String;
-use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use tokio::fs;
 
@@ -142,60 +142,47 @@ async fn get_config_values() -> ConfigValues {
 }
 
 #[allow(clippy::cognitive_complexity)]
-async fn collect_profile_items() -> ProfileItems {
+async fn collect_profile_items() -> Result<ProfileItems> {
     let profiles = Config::profiles().await;
     let profiles_arc = profiles.latest_arc();
     drop(profiles);
 
-    let current = profiles_arc.current_mapping().await.unwrap_or_default();
-
-    let current_profile_uid = match profiles_arc.get_current() {
+    let current_profile_uid = match profiles_arc.get_current().cloned() {
         Some(uid) => uid,
         None => {
             drop(profiles_arc);
-            return ProfileItems::default();
+            return Ok(ProfileItems::default());
         }
     };
 
-    let current_item = match profiles_arc.get_item(current_profile_uid) {
+    let current = profiles_arc
+        .current_mapping()
+        .await
+        .with_context(|| format!("failed to read current profile \"{current_profile_uid}\""))?;
+
+    let current_item = match profiles_arc.get_item(&current_profile_uid) {
         Ok(item) => item,
-        Err(_) => {
-            drop(profiles_arc);
-            return ProfileItems::default();
+        Err(err) => {
+            return Err(err).with_context(|| format!("failed to get current profile \"{current_profile_uid}\""));
         }
     };
 
-    let merge_uid: Cow<'_, str> = if let Some(s) = current_item.current_merge() {
-        Cow::Borrowed(s)
-    } else {
-        Cow::Owned("Merge".into())
-    };
-    let script_uid: Cow<'_, str> = if let Some(s) = current_item.current_script() {
-        Cow::Borrowed(s)
-    } else {
-        Cow::Owned("Script".into())
-    };
-    let rules_uid: Cow<'_, str> = if let Some(s) = current_item.current_rules() {
-        Cow::Borrowed(s)
-    } else {
-        Cow::Owned("Rules".into())
-    };
-    let proxies_uid: Cow<'_, str> = if let Some(s) = current_item.current_proxies() {
-        Cow::Borrowed(s)
-    } else {
-        Cow::Owned("Proxies".into())
-    };
-    let groups_uid: Cow<'_, str> = if let Some(s) = current_item.current_groups() {
-        Cow::Borrowed(s)
-    } else {
-        Cow::Owned("Groups".into())
-    };
+    let merge_uid = current_item.current_merge().cloned().unwrap_or_else(|| "Merge".into());
+    let script_uid = current_item
+        .current_script()
+        .cloned()
+        .unwrap_or_else(|| "Script".into());
+    let rules_uid = current_item.current_rules().cloned().unwrap_or_else(|| "Rules".into());
+    let proxies_uid = current_item
+        .current_proxies()
+        .cloned()
+        .unwrap_or_else(|| "Proxies".into());
+    let groups_uid = current_item
+        .current_groups()
+        .cloned()
+        .unwrap_or_else(|| "Groups".into());
 
-    let name = profiles_arc
-        .get_item(current_profile_uid)
-        .ok()
-        .and_then(|item| item.name.clone())
-        .unwrap_or_default();
+    let name = current_item.name.clone().unwrap_or_default();
 
     let merge_item = {
         let item = profiles_arc.get_item(&merge_uid).ok().cloned();
@@ -290,7 +277,7 @@ async fn collect_profile_items() -> ProfileItems {
 
     drop(profiles_arc);
 
-    ProfileItems {
+    Ok(ProfileItems {
         config: current,
         merge_item,
         script_item,
@@ -300,10 +287,10 @@ async fn collect_profile_items() -> ProfileItems {
         global_merge,
         global_script,
         profile_name: name,
-    }
+    })
 }
 
-fn process_global_items(
+async fn process_global_items(
     mut config: Mapping,
     global_merge: ChainItem,
     global_script: ChainItem,
@@ -319,7 +306,7 @@ fn process_global_items(
 
     if let ChainType::Script(script) = global_script.data {
         let mut logs = vec![];
-        match use_script(script, &config, profile_name) {
+        match use_script(script, config.clone(), profile_name.clone()).await {
             Ok((res_config, res_logs)) => {
                 exists_keys.extend(use_keys(&res_config));
                 config = res_config;
@@ -334,7 +321,7 @@ fn process_global_items(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn process_profile_items(
+async fn process_profile_items(
     mut config: Mapping,
     mut exists_keys: Vec<String>,
     mut result_map: HashMap<String, ResultLog>,
@@ -364,7 +351,7 @@ fn process_profile_items(
 
     if let ChainType::Script(script) = script_item.data {
         let mut logs = vec![];
-        match use_script(script, &config, profile_name) {
+        match use_script(script, config.clone(), profile_name.clone()).await {
             Ok((res_config, res_logs)) => {
                 exists_keys.extend(use_keys(&res_config));
                 config = res_config;
@@ -455,25 +442,26 @@ async fn merge_default_config(
     config
 }
 
-fn apply_builtin_scripts(mut config: Mapping, clash_core: Option<String>, enable_builtin: bool) -> Mapping {
+async fn apply_builtin_scripts(mut config: Mapping, clash_core: Option<String>, enable_builtin: bool) -> Mapping {
     if enable_builtin {
-        ChainItem::builtin()
+        let items: Vec<_> = ChainItem::builtin()
             .into_iter()
             .filter(|(s, _)| s.is_support(clash_core.as_ref()))
             .map(|(_, c)| c)
-            .for_each(|item| {
-                logging!(debug, Type::Core, "run builtin script {}", item.uid);
-                if let ChainType::Script(script) = item.data {
-                    match use_script(script, &config, &String::from("")) {
-                        Ok((res_config, _)) => {
-                            config = res_config;
-                        }
-                        Err(err) => {
-                            logging!(error, Type::Core, "builtin script error `{err}`");
-                        }
+            .collect();
+        for item in items {
+            logging!(debug, Type::Core, "run builtin script {}", item.uid);
+            if let ChainType::Script(script) = item.data {
+                match use_script(script, config.clone(), String::from("")).await {
+                    Ok((res_config, _)) => {
+                        config = res_config;
+                    }
+                    Err(err) => {
+                        logging!(error, Type::Core, "builtin script error `{err}`");
                     }
                 }
-            });
+            }
+        }
     }
 
     config
@@ -591,7 +579,7 @@ async fn apply_dns_settings(mut config: Mapping, enable_dns_settings: bool) -> M
 
 /// Enhance mode
 /// 返回最终订阅、该订阅包含的键、和script执行的结果
-pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>) {
+pub async fn enhance() -> Result<(Mapping, HashSet<String>, HashMap<String, ResultLog>)> {
     // gather config values
     let cfg_vals = get_config_values().await;
     let ConfigValues {
@@ -609,7 +597,7 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
     } = cfg_vals;
 
     // collect profile items
-    let profile = collect_profile_items().await;
+    let profile = collect_profile_items().await?;
     let config = profile.config;
     let merge_item = profile.merge_item;
     let script_item = profile.script_item;
@@ -621,7 +609,8 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
     let profile_name = profile.profile_name;
 
     // process globals
-    let (config, exists_keys, result_map) = process_global_items(config, global_merge, global_script, &profile_name);
+    let (config, exists_keys, result_map) =
+        process_global_items(config, global_merge, global_script, &profile_name).await;
 
     // process profile-specific items
     let (config, exists_keys, result_map) = process_profile_items(
@@ -634,7 +623,8 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
         merge_item,
         script_item,
         &profile_name,
-    );
+    )
+    .await;
 
     // merge default clash config
     let config = merge_default_config(
@@ -650,7 +640,7 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
     .await;
 
     // builtin scripts
-    let mut config = apply_builtin_scripts(config, clash_core, enable_builtin);
+    let mut config = apply_builtin_scripts(config, clash_core, enable_builtin).await;
 
     config = cleanup_proxy_groups(config);
 
@@ -663,7 +653,7 @@ pub async fn enhance() -> (Mapping, HashSet<String>, HashMap<String, ResultLog>)
     let mut exists_keys_set = HashSet::new();
     exists_keys_set.extend(exists_keys);
 
-    (config, exists_keys_set, result_map)
+    Ok((config, exists_keys_set, result_map))
 }
 
 #[allow(clippy::expect_used)]

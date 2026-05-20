@@ -60,6 +60,7 @@
     "menu": {
       "home": "Ana Sayfa",
       "select": "Seç",
+      "shareQrCode": "Share QR Code",
       "editInfo": "Bilgileri Düzenle",
       "editFile": "Dosyayı Düzenle",
       "editRules": "Kuralları Düzenle",
@@ -73,8 +74,8 @@
     },
     "more": {
       "global": {
-        "merge": "Global Merge",
-        "script": "Global Script"
+        "merge": "Global Extend Config",
+        "script": "Global Extend Script"
       },
       "chips": {
         "merge": "Merge",
@@ -106,15 +107,15 @@
         "description": "Açıklamalar",
         "subscriptionUrl": "Abonelik URL'si",
         "httpTimeout": "HTTP Request Timeout",
+        "loginPassword": "Site giriş parolası",
+        "loginPasswordPlaceholder": "Havaalanı sitesi giriş parolanız",
+        "loginPasswordWrongHint": "Parola hatalı, lütfen tekrar deneyin",
+        "loginPasswordDialogTitle": "Site giriş parolası",
         "updateInterval": "Güncelleme Aralığı",
         "useSystemProxy": "Sistem Vekil'ini Kullan",
         "useClashProxy": "Clash Vekil'ini Kullan",
         "acceptInvalidCerts": "Geçersiz Sertifikalara İzin Ver (Tehlikeli)",
-        "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Site giriş parolası",
-        "loginPasswordPlaceholder": "Havaalanı sitesi giriş parolanız",
-        "loginPasswordWrongHint": "Parola hatalı, lütfen tekrar deneyin",
-        "loginPasswordDialogTitle": "Site giriş parolası"
+        "allowAutoUpdate": "Allow Auto Update"
       },
       "feedback": {
         "notifications": {
@@ -182,6 +183,9 @@
     },
     "logViewer": {
       "title": "Betik Konsolu"
+    },
+    "qrViewer": {
+      "title": "Subscription QR Code"
     }
   }
 }

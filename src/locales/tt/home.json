@@ -3,6 +3,7 @@
     "tooltips": {
       "lightweightMode": "Җиңел Режим",
       "manual": "Документация",
+      "launchBrowser": "Launch browser with current proxy",
       "settings": "Home Settings"
     },
     "cards": {

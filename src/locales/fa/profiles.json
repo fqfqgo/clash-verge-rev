@@ -60,6 +60,7 @@
     "menu": {
       "home": "Home",
       "select": "انتخاب",
+      "shareQrCode": "Share QR Code",
       "editInfo": "ویرایش اطلاعات",
       "editFile": "ویرایش فایل",
       "editRules": "ویرایش قوانین",
@@ -73,8 +74,8 @@
     },
     "more": {
       "global": {
-        "merge": "Global Merge",
-        "script": "Global Script"
+        "merge": "Global Extend Config",
+        "script": "Global Extend Script"
       },
       "chips": {
         "merge": "Merge",
@@ -106,15 +107,15 @@
         "description": "توضیحات",
         "subscriptionUrl": "آدرس اشتراک",
         "httpTimeout": "HTTP Request Timeout",
+        "loginPassword": "رمز ورود وب‌سایت",
+        "loginPasswordPlaceholder": "رمز ورود سایت فرودگاه شما",
+        "loginPasswordWrongHint": "رمز اشتباه است، دوباره تلاش کنید",
+        "loginPasswordDialogTitle": "رمز ورود وب‌سایت",
         "updateInterval": "فاصله زمانی به‌روزرسانی",
         "useSystemProxy": "استفاده از پراکسی سیستم",
         "useClashProxy": "استفاده از پراکسی Clash",
         "acceptInvalidCerts": "پذیرش گواهی‌نامه‌های نامعتبر (خطرناک)",
-        "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "رمز ورود وب‌سایت",
-        "loginPasswordPlaceholder": "رمز ورود سایت فرودگاه شما",
-        "loginPasswordWrongHint": "رمز اشتباه است، دوباره تلاش کنید",
-        "loginPasswordDialogTitle": "رمز ورود وب‌سایت"
+        "allowAutoUpdate": "Allow Auto Update"
       },
       "feedback": {
         "notifications": {
@@ -182,6 +183,9 @@
     },
     "logViewer": {
       "title": "کنسول اسکریپت"
+    },
+    "qrViewer": {
+      "title": "Subscription QR Code"
     }
   }
 }

@@ -60,6 +60,7 @@
     "menu": {
       "home": "Home",
       "select": "اختيار",
+      "shareQrCode": "Share QR Code",
       "editInfo": "تعديل المعلومات",
       "editFile": "تعديل الملف",
       "editRules": "تعديل القواعد",
@@ -73,8 +74,8 @@
     },
     "more": {
       "global": {
-        "merge": "Global Merge",
-        "script": "Global Script"
+        "merge": "Global Extend Config",
+        "script": "Global Extend Script"
       },
       "chips": {
         "merge": "Merge",
@@ -106,15 +107,15 @@
         "description": "الوصف",
         "subscriptionUrl": "رابط الاشتراك",
         "httpTimeout": "HTTP Request Timeout",
+        "loginPassword": "كلمة مرور تسجيل الدخول للموقع",
+        "loginPasswordPlaceholder": "كلمة مرور تسجيل الدخول لموقع المطار",
+        "loginPasswordWrongHint": "كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى",
+        "loginPasswordDialogTitle": "كلمة مرور تسجيل الدخول للموقع",
         "updateInterval": "فاصل التحديث",
         "useSystemProxy": "استخدام وكيل النظام",
         "useClashProxy": "استخدام وكيل Clash",
         "acceptInvalidCerts": "قبول الشهادات غير الصالحة (خطر)",
-        "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "كلمة مرور تسجيل الدخول للموقع",
-        "loginPasswordPlaceholder": "كلمة مرور تسجيل الدخول لموقع المطار",
-        "loginPasswordWrongHint": "كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى",
-        "loginPasswordDialogTitle": "كلمة مرور تسجيل الدخول للموقع"
+        "allowAutoUpdate": "Allow Auto Update"
       },
       "feedback": {
         "notifications": {
@@ -182,6 +183,9 @@
     },
     "logViewer": {
       "title": "وحدة التحكم للسكريبت"
+    },
+    "qrViewer": {
+      "title": "Subscription QR Code"
     }
   }
 }

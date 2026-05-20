@@ -60,6 +60,7 @@
     "menu": {
       "home": "首 頁",
       "select": "使用",
+      "shareQrCode": "Share QR Code",
       "editInfo": "編輯資訊",
       "editFile": "編輯檔案",
       "editRules": "編輯規則",
@@ -73,8 +74,8 @@
     },
     "more": {
       "global": {
-        "merge": "Global Merge",
-        "script": "Global Script"
+        "merge": "Global Extend Config",
+        "script": "Global Extend Script"
       },
       "chips": {
         "merge": "Merge",
@@ -106,15 +107,15 @@
         "description": "描述",
         "subscriptionUrl": "訂閱網址",
         "httpTimeout": "HTTP Request Timeout",
+        "loginPassword": "網站登入密碼",
+        "loginPasswordPlaceholder": "你在機場網站的登入密碼",
+        "loginPasswordWrongHint": "密碼錯誤，請重試",
+        "loginPasswordDialogTitle": "網站登入密碼",
         "updateInterval": "更新間隔",
         "useSystemProxy": "使用系統代理更新",
         "useClashProxy": "使用內核代理更新",
         "acceptInvalidCerts": "允許無效憑證（危險）",
-        "allowAutoUpdate": "允許自動更新",
-        "loginPassword": "網站登入密碼",
-        "loginPasswordPlaceholder": "你在機場網站的登入密碼",
-        "loginPasswordWrongHint": "密碼錯誤，請重試",
-        "loginPasswordDialogTitle": "網站登入密碼"
+        "allowAutoUpdate": "允許自動更新"
       },
       "feedback": {
         "notifications": {
@@ -182,6 +183,9 @@
     },
     "logViewer": {
       "title": "指令碼控制台輸出"
+    },
+    "qrViewer": {
+      "title": "Subscription QR Code"
     }
   }
 }

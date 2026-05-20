@@ -5,7 +5,10 @@ use crate::{
     cmd::StringifyErr as _,
     config::{ClashInfo, Config},
     constants,
-    core::{CoreManager, handle, validate::CoreConfigValidator},
+    core::{
+        CoreManager, handle,
+        validate::{CoreConfigValidator, ValidationOutcome},
+    },
 };
 use clash_verge_logging::{Type, logging, logging_error};
 use compact_str::CompactString;
@@ -46,7 +49,7 @@ pub async fn change_clash_core(clash_core: String) -> CmdResult<Option<String>> 
 
     match CoreManager::global().change_core(&clash_core).await {
         Ok(_) => {
-            logging_error!(Type::Core, Config::profiles().await.latest_arc().save_file().await);
+            logging_error!(Type::Core, Config::profiles().await.data_arc().save_file().await);
 
             // 切换内核后重启内核
             match CoreManager::global().restart_core().await {
@@ -86,7 +89,7 @@ pub async fn start_core() -> CmdResult {
 /// 关闭核心
 #[tauri::command]
 pub async fn stop_core() -> CmdResult {
-    logging_error!(Type::Core, Config::profiles().await.latest_arc().save_file().await);
+    logging_error!(Type::Core, Config::profiles().await.data_arc().save_file().await);
     let result = CoreManager::global().stop_core().await.stringify_err();
     if result.is_ok() {
         handle::Handle::refresh_clash();
@@ -97,7 +100,7 @@ pub async fn stop_core() -> CmdResult {
 /// 重启核心
 #[tauri::command]
 pub async fn restart_core() -> CmdResult {
-    logging_error!(Type::Core, Config::profiles().await.latest_arc().save_file().await);
+    logging_error!(Type::Core, Config::profiles().await.data_arc().save_file().await);
     let result = CoreManager::global().restart_core().await.stringify_err();
     if result.is_ok() {
         handle::Handle::refresh_clash();
@@ -168,32 +171,27 @@ pub async fn apply_dns_config(apply: bool) -> CmdResult {
             d.patch_config(&patch);
         });
 
-        // 重新生成配置
-        Config::generate().await.stringify_err_log(|err| {
-            let err = format!("Failed to regenerate config with DNS: {err}");
-            logging!(error, Type::Config, "{err}");
-        })?;
-
         // 应用新配置
-        CoreManager::global().update_config().await.stringify_err_log(|err| {
-            let err = format!("Failed to apply config with DNS: {err}");
-            logging!(error, Type::Config, "{err}");
-        })?;
+        CoreManager::global()
+            .update_config_checked()
+            .await
+            .stringify_err_log(|err| {
+                let err = format!("Failed to apply config with DNS: {err}");
+                logging!(error, Type::Config, "{err}");
+            })?;
 
         logging!(info, Type::Config, "DNS config successfully applied");
     } else {
         // 当关闭DNS设置时，重新生成配置（不加载DNS配置文件）
         logging!(info, Type::Config, "DNS settings disabled, regenerating config");
 
-        Config::generate().await.stringify_err_log(|err| {
-            let err = format!("Failed to regenerate config: {err}");
-            logging!(error, Type::Config, "{err}");
-        })?;
-
-        CoreManager::global().update_config().await.stringify_err_log(|err| {
-            let err = format!("Failed to apply regenerated config: {err}");
-            logging!(error, Type::Config, "{err}");
-        })?;
+        CoreManager::global()
+            .update_config_checked()
+            .await
+            .stringify_err_log(|err| {
+                let err = format!("Failed to apply regenerated config: {err}");
+                logging!(error, Type::Config, "{err}");
+            })?;
 
         logging!(info, Type::Config, "Config regenerated successfully");
     }
@@ -230,16 +228,16 @@ pub async fn get_dns_config_content() -> CmdResult<String> {
 
 /// 验证DNS配置文件
 #[tauri::command]
-pub async fn validate_dns_config() -> CmdResult<(bool, String)> {
+pub async fn validate_dns_config() -> CmdResult<ValidationOutcome> {
     let app_dir = dirs::app_home_dir().stringify_err()?;
     let dns_path = app_dir.join(constants::files::DNS_CONFIG);
     let dns_path_str = dns_path.to_str().unwrap_or_default();
 
     if !dns_path.exists() {
-        return Ok((false, "DNS config file not found".into()));
+        return Ok(ValidationOutcome::invalid_from_message("DNS config file not found"));
     }
 
-    CoreConfigValidator::validate_config_file(dns_path_str, None)
+    CoreConfigValidator::validate_config_file_outcome(dns_path_str, None)
         .await
         .stringify_err()
 }

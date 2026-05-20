@@ -16,6 +16,8 @@
     "refreshPage": "페이지 새로고침",
     "showDetails": "세부정보 보기",
     "hideDetails": "세부정보 숨기기",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "listView": "목록 보기",
     "tableView": "테이블 보기",
     "pause": "일시 정지",

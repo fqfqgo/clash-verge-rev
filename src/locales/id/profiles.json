@@ -60,6 +60,7 @@
     "menu": {
       "home": "Home",
       "select": "Pilih",
+      "shareQrCode": "Share QR Code",
       "editInfo": "Ubah Info",
       "editFile": "Ubah Berkas",
       "editRules": "Ubah Aturan",
@@ -73,8 +74,8 @@
     },
     "more": {
       "global": {
-        "merge": "Global Merge",
-        "script": "Global Script"
+        "merge": "Global Extend Config",
+        "script": "Global Extend Script"
       },
       "chips": {
         "merge": "Merge",
@@ -106,15 +107,15 @@
         "description": "Deskripsi",
         "subscriptionUrl": "URL Langganan",
         "httpTimeout": "HTTP Request Timeout",
+        "loginPassword": "Kata sandi login situs",
+        "loginPasswordPlaceholder": "Kata sandi login situs bandara Anda",
+        "loginPasswordWrongHint": "Kata sandi salah, silakan coba lagi",
+        "loginPasswordDialogTitle": "Kata sandi login situs",
         "updateInterval": "Interval Pembaruan",
         "useSystemProxy": "Gunakan Proksi Sistem",
         "useClashProxy": "Gunakan Proksi Clash",
         "acceptInvalidCerts": "Terima Sertifikat Tidak Valid (Bahaya)",
-        "allowAutoUpdate": "Allow Auto Update",
-        "loginPassword": "Kata sandi login situs",
-        "loginPasswordPlaceholder": "Kata sandi login situs bandara Anda",
-        "loginPasswordWrongHint": "Kata sandi salah, silakan coba lagi",
-        "loginPasswordDialogTitle": "Kata sandi login situs"
+        "allowAutoUpdate": "Allow Auto Update"
       },
       "feedback": {
         "notifications": {
@@ -182,6 +183,9 @@
     },
     "logViewer": {
       "title": "Konsol Skrip"
+    },
+    "qrViewer": {
+      "title": "Subscription QR Code"
     }
   }
 }

@@ -88,9 +88,9 @@ impl Logger {
 
             let mut filter_modules = vec!["wry", "tokio_tungstenite", "tungstenite"];
             #[cfg(not(feature = "tracing"))]
-            filter_modules.push("tauri::ipc");
+            filter_modules.push("tauri");
             #[cfg(feature = "tracing")]
-            filter_modules.extend(["kode_bridge"]);
+            filter_modules.extend(["tauri_plugin_mihomo", "kode_bridge"]);
             let logger = logger.filter(Box::new(clash_verge_logging::NoModuleFilter(filter_modules)));
 
             let handle = logger.start()?;
@@ -99,6 +99,22 @@ impl Logger {
 
         let sidecar_file_writer = self.generate_sidecar_writer()?;
         *self.sidecar_file_writer.write() = Some(sidecar_file_writer);
+
+        std::panic::set_hook(Box::new(move |info| {
+            let payload = info
+                .payload()
+                .downcast_ref::<&str>()
+                .unwrap_or(&"Unknown panic payload");
+            let location = info
+                .location()
+                .map(|loc| format!("{}:{}", loc.file(), loc.line()))
+                .unwrap_or_else(|| "Unknown location".to_string());
+            logging!(error, Type::System, "Panic occurred at {}: {}", location, payload);
+            if let Some(h) = Self::global().handle.lock().as_ref() {
+                h.flush();
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        }));
 
         Ok(())
     }

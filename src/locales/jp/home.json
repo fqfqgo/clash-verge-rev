@@ -3,6 +3,7 @@
     "tooltips": {
       "lightweightMode": "軽量モード",
       "manual": "マニュアル",
+      "launchBrowser": "Launch browser with current proxy",
       "settings": "ホーム設定"
     },
     "cards": {
