@@ -4,6 +4,7 @@
 
 - 启用 `createUpdaterArtifacts`，Release 生成完整 `.sig` 与 `latest.json`（与上游 25 个 Assets 一致）
 - WinGet 首包提交改用 `komac submit`（`V2Free.ClashVergeForV2free`）
+- Release 安装包文件名恢复为上游格式 `Clash.Verge_*`，保证旧版应用内更新可用
 
 ## v2.5.2
 

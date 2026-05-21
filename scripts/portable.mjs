@@ -50,7 +50,7 @@ async function resolvePortable() {
   const require = createRequire(import.meta.url)
   const packageJson = require('../package.json')
   const { version } = packageJson
-  const zipFile = `Clash.Verge.for.v2free_${version}_${arch}_portable.zip`
+  const zipFile = `Clash.Verge_${version}_${arch}_portable.zip`
   zip.writeZip(zipFile)
   console.log('[INFO]: create portable zip successfully')
 }
