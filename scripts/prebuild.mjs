@@ -105,6 +105,44 @@ async function getCachedVersion(key) {
   }
   return null
 }
+async function getStaleCachedVersion(key) {
+  const cache = await loadVersionCache()
+  const cached = cache[key]
+  return cached?.version ?? null
+}
+function createFetchOptions(extra = {}) {
+  const options = { ...extra }
+  const httpProxy =
+    process.env.HTTP_PROXY ||
+    process.env.http_proxy ||
+    process.env.HTTPS_PROXY ||
+    process.env.https_proxy
+  if (httpProxy) options.agent = new HttpsProxyAgent(httpProxy)
+  return options
+}
+async function fetchWithRetries(
+  url,
+  options,
+  { retries = 5, delayMs = 2000 } = {},
+) {
+  let lastErr
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${url}: ${response.status}`)
+      }
+      return response
+    } catch (err) {
+      lastErr = err
+      log_error(`fetch try ${i + 1}/${retries} failed:`, err.message)
+      if (i < retries - 1) {
+        await new Promise((r) => setTimeout(r, delayMs * (i + 1)))
+      }
+    }
+  }
+  throw lastErr
+}
 async function setCachedVersion(key, version) {
   const cache = await loadVersionCache()
   cache[key] = { version, timestamp: Date.now() }
@@ -241,7 +279,7 @@ async function getLatestAlphaVersion() {
     await setCachedVersion('META_ALPHA_VERSION', META_ALPHA_VERSION)
   } catch (err) {
     log_error('Error fetching latest alpha version:', err.message)
-    process.exit(1)
+    throw err
   }
 }
 
@@ -273,7 +311,7 @@ async function getLatestReleaseVersion() {
     await setCachedVersion('META_VERSION', META_VERSION)
   } catch (err) {
     log_error('Error fetching latest release version:', err.message)
-    process.exit(1)
+    throw err
   }
 }
 
@@ -577,10 +615,12 @@ const resolveServicePermission = async () => {
 // =======================
 // Other resource resolvers (service, mmdb, geosite, geoip, enableLoopback)
 // =======================
-const SERVICE_LATEST_URL =
-  'https://github.com/clash-verge-rev/clash-verge-service-ipc/releases/latest'
-const SERVICE_URL_PREFIX =
-  'https://github.com/clash-verge-rev/clash-verge-service-ipc/releases/download'
+const SERVICE_REPO = 'clash-verge-rev/clash-verge-service-ipc'
+const SERVICE_LATEST_URL = `https://github.com/${SERVICE_REPO}/releases/latest`
+const SERVICE_API_LATEST_URL = `https://api.github.com/repos/${SERVICE_REPO}/releases/latest`
+const SERVICE_URL_PREFIX = `https://github.com/${SERVICE_REPO}/releases/download`
+/** Fallback when GitHub is unreachable (e.g. CI socket hang up). Bump when upgrading service-ipc. */
+const SERVICE_VERSION_FALLBACK = 'v2.3.0'
 let SERVICE_VERSION
 
 const SERVICE_BINARIES = [
@@ -603,7 +643,48 @@ function parseServiceVersionFromUrl(url) {
   return match ? decodeURIComponent(match[1]) : null
 }
 
+async function resolveServiceVersionFromApi() {
+  const response = await fetchWithRetries(
+    SERVICE_API_LATEST_URL,
+    createFetchOptions({
+      method: 'GET',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'clash-verge-prebuild',
+      },
+    }),
+    { retries: 5, delayMs: 2000 },
+  )
+  const data = await response.json()
+  if (data?.tag_name) return data.tag_name
+  throw new Error('Unable to resolve service release tag from GitHub API')
+}
+
+async function resolveServiceVersionFromLatestUrl() {
+  const response = await fetchWithRetries(
+    SERVICE_LATEST_URL,
+    createFetchOptions({ method: 'GET', redirect: 'follow' }),
+    { retries: 5, delayMs: 2000 },
+  )
+  const version = parseServiceVersionFromUrl(response.url)
+  if (!version) {
+    throw new Error(
+      `Unable to resolve service release tag from ${response.url}`,
+    )
+  }
+  return version
+}
+
 async function getLatestServiceVersion() {
+  const envVersion = process.env.CLASH_VERGE_SERVICE_VERSION?.trim()
+  if (envVersion) {
+    SERVICE_VERSION = envVersion
+    log_info(
+      `Service version from CLASH_VERGE_SERVICE_VERSION: ${SERVICE_VERSION}`,
+    )
+    return
+  }
+
   if (!FORCE) {
     const cached = await getCachedVersion('SERVICE_VERSION')
     if (cached) {
@@ -612,37 +693,31 @@ async function getLatestServiceVersion() {
     }
   }
 
-  const options = {}
-  const httpProxy =
-    process.env.HTTP_PROXY ||
-    process.env.http_proxy ||
-    process.env.HTTPS_PROXY ||
-    process.env.https_proxy
-  if (httpProxy) options.agent = new HttpsProxyAgent(httpProxy)
-
   try {
-    const response = await fetch(SERVICE_LATEST_URL, {
-      ...options,
-      method: 'GET',
-      redirect: 'follow',
-    })
-    if (!response.ok)
-      throw new Error(
-        `Failed to fetch ${SERVICE_LATEST_URL}: ${response.status}`,
+    SERVICE_VERSION = await resolveServiceVersionFromApi()
+  } catch (apiErr) {
+    log_error('GitHub API service version failed:', apiErr.message)
+    try {
+      SERVICE_VERSION = await resolveServiceVersionFromLatestUrl()
+    } catch (webErr) {
+      log_error(
+        'GitHub releases/latest service version failed:',
+        webErr.message,
       )
-
-    SERVICE_VERSION = parseServiceVersionFromUrl(response.url)
-    if (!SERVICE_VERSION)
-      throw new Error(
-        `Unable to resolve service release tag from ${response.url}`,
-      )
-
-    log_info(`Latest service version: ${SERVICE_VERSION}`)
-    await setCachedVersion('SERVICE_VERSION', SERVICE_VERSION)
-  } catch (err) {
-    log_error('Error fetching latest service version:', err.message)
-    process.exit(1)
+      const stale = await getStaleCachedVersion('SERVICE_VERSION')
+      if (stale) {
+        SERVICE_VERSION = stale
+        log_info(`Using stale cached service version: ${SERVICE_VERSION}`)
+        return
+      }
+      SERVICE_VERSION = SERVICE_VERSION_FALLBACK
+      log_info(`Using pinned fallback service version: ${SERVICE_VERSION}`)
+      return
+    }
   }
+
+  log_info(`Latest service version: ${SERVICE_VERSION}`)
+  await setCachedVersion('SERVICE_VERSION', SERVICE_VERSION)
 }
 
 async function findExtractedFile(dir, fileName) {
