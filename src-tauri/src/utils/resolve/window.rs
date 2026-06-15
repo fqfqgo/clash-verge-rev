@@ -61,7 +61,7 @@ pub async fn build_new_window() -> Result<WebviewWindow, String> {
         "main", /* the unique window label */
         tauri::WebviewUrl::App(start_page.into()),
     )
-    .title("Clash Verge for v2free")
+    .title(crate::utils::dirs::app_window_title())
     .center()
     .decorations(DEFAULT_DECORATIONS)
     .fullscreen(false)

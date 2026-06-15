@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DialogRef, TooltipIcon } from '@/components/base'
+import { forkVersionLabel } from '@/constants/fork'
 import { updateLastCheckTime } from '@/hooks/use-update'
 import {
   exitApp,
@@ -65,7 +66,7 @@ const SettingVergeAdvanced = ({ onError: _ }: Props) => {
   }, [])
 
   const copyVersion = useCallback(() => {
-    navigator.clipboard.writeText(`v${version}`).then(() => {
+    navigator.clipboard.writeText(forkVersionLabel(version)).then(() => {
       showNotice.success(
         'settings.components.verge.advanced.notifications.versionCopied',
         1000,
@@ -169,7 +170,9 @@ const SettingVergeAdvanced = ({ onError: _ }: Props) => {
           />
         }
       >
-        <Typography sx={{ py: '7px', pr: 1 }}>v{version}</Typography>
+        <Typography sx={{ py: '7px', pr: 1 }}>
+          {forkVersionLabel(version)}
+        </Typography>
       </SettingItem>
     </SettingList>
   )

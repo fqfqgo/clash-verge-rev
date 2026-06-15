@@ -285,7 +285,7 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             if let Some(window) = _app_handle.get_webview_window("main") {
-                let _ = window.set_title("Clash Verge for v2free");
+                let _ = window.set_title(crate::utils::dirs::app_window_title());
             }
         }
 

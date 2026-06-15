@@ -24,6 +24,10 @@ pub static CLASH_CONFIG: &str = "config.yaml";
 pub static VERGE_CONFIG: &str = "verge.yaml";
 pub static PROFILE_YAML: &str = "profiles.yaml";
 
+pub fn app_window_title() -> String {
+    format!("Clash Verge for v2free v{}", env!("CARGO_PKG_VERSION"))
+}
+
 /// init portable flag
 pub fn init_portable_flag() -> Result<()> {
     use tauri::utils::platform::current_exe;
