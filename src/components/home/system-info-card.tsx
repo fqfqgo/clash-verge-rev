@@ -11,6 +11,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
+import { EnhancedCard } from '@/components/home/enhanced-card'
+import { forkVersionLabel } from '@/constants/fork'
 import { useServiceInstaller } from '@/hooks/use-service-installer'
 import { useSystemState } from '@/hooks/use-system-state'
 import {
@@ -22,8 +24,6 @@ import { useVerge } from '@/hooks/use-verge'
 import { getSystemInfo } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { version as appVersion } from '@root/package.json'
-
-import { EnhancedCard } from './enhanced-card'
 
 export const SystemInfoCard = () => {
   const { t } = useTranslation()
@@ -287,7 +287,7 @@ export const SystemInfoCard = () => {
             {t('home.components.systemInfo.fields.vergeVersion')}
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            v{appVersion}
+            {forkVersionLabel(appVersion)}
           </Typography>
         </Stack>
       </Stack>
