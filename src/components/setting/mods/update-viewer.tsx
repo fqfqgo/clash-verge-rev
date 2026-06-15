@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 
 import { BaseDialog, DialogRef } from '@/components/base'
+import { forkReleaseTagUrl } from '@/constants/fork'
 import { useUpdate } from '@/hooks/use-update'
 import { portableFlag } from '@/pages/_layout'
 import { showNotice } from '@/services/notice-service'
@@ -228,9 +229,7 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
             size="small"
             sx={{ whiteSpace: 'nowrap' }}
             onClick={() => {
-              openUrl(
-                `https://github.com/clash-verge-rev/clash-verge-rev/releases/tag/v${updateInfo?.version}`,
-              )
+              openUrl(forkReleaseTagUrl(updateInfo?.version ?? ''))
             }}
           >
             {t('settings.modals.update.actions.goToRelease')}

@@ -2,6 +2,7 @@ import {
   DnsOutlined,
   HelpOutlineRounded,
   HistoryEduOutlined,
+  OpenInBrowserOutlined,
   RouterOutlined,
   SettingsOutlined,
   SpeedOutlined,
@@ -32,9 +33,14 @@ import { EnhancedCard } from '@/components/home/enhanced-card'
 import { EnhancedTrafficStats } from '@/components/home/enhanced-traffic-stats'
 import { HomeProfileCard } from '@/components/home/home-profile-card'
 import { ProxyTunCard } from '@/components/home/proxy-tun-card'
+import { FORK_DOC_URL } from '@/constants/fork'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
-import { entry_lightweight_mode, openWebUrl } from '@/services/cmds'
+import {
+  entry_lightweight_mode,
+  launchBrowserWithProxy,
+  openWebUrl,
+} from '@/services/cmds'
 
 const LazyTestCard = lazy(() =>
   import('@/components/home/test-card').then((module) => ({
@@ -263,7 +269,7 @@ const HomePage = () => {
 
   // 文档链接函数
   const toGithubDoc = useLockFn(() => {
-    return openWebUrl('https://clash-verge-rev.github.io/index.html')
+    return openWebUrl(FORK_DOC_URL)
   })
 
   // 新增：打开设置弹窗
@@ -380,6 +386,15 @@ const HomePage = () => {
           <Tooltip title={t('home.page.tooltips.manual')} arrow>
             <IconButton onClick={toGithubDoc} size="small" color="inherit">
               <HelpOutlineRounded />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('home.page.tooltips.launchBrowser')} arrow>
+            <IconButton
+              onClick={() => launchBrowserWithProxy()}
+              size="small"
+              color="inherit"
+            >
+              <OpenInBrowserOutlined />
             </IconButton>
           </Tooltip>
           <Tooltip title={t('home.page.tooltips.settings')} arrow>

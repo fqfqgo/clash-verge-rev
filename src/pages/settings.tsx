@@ -1,4 +1,4 @@
-import { GitHub, HelpOutlineRounded, Telegram } from '@mui/icons-material'
+import { GitHub, HelpOutlineRounded } from '@mui/icons-material'
 import { Box, ButtonGroup, IconButton, Grid } from '@mui/material'
 import { useLockFn } from 'ahooks'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +8,7 @@ import SettingClash from '@/components/setting/setting-clash'
 import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
+import { FORK_DOC_URL, FORK_GITHUB_RELEASES } from '@/constants/fork'
 import { openWebUrl } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
@@ -20,15 +21,11 @@ const SettingPage = () => {
   }
 
   const toGithubRepo = useLockFn(() => {
-    return openWebUrl('https://github.com/clash-verge-rev/clash-verge-rev')
+    return openWebUrl(FORK_GITHUB_RELEASES)
   })
 
   const toGithubDoc = useLockFn(() => {
-    return openWebUrl('https://clash-verge-rev.github.io/index.html')
-  })
-
-  const toTelegramChannel = useLockFn(() => {
-    return openWebUrl('https://t.me/clash_verge_re')
+    return openWebUrl(FORK_DOC_URL)
   })
 
   const mode = useThemeMode()
@@ -46,14 +43,6 @@ const SettingPage = () => {
             onClick={toGithubDoc}
           >
             <HelpOutlineRounded fontSize="inherit" />
-          </IconButton>
-          <IconButton
-            size="medium"
-            color="inherit"
-            title={t('settings.page.actions.telegram')}
-            onClick={toTelegramChannel}
-          >
-            <Telegram fontSize="inherit" />
           </IconButton>
 
           <IconButton
