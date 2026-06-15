@@ -1,9 +1,9 @@
 ﻿## v2.5.4
 
-### ✨ v2free 定制
+### ✨ 品牌与界面定制
 
 - 恢复 fork 文档 / GitHub 链接与 Home 页「启动浏览器」按钮
-- 窗口标题、设置页与 Home 系统信息显示 `for v2free v{version}` 版本格式
+- 窗口标题、设置页与 Home 系统信息统一显示 fork 版本标签
 
 ## v2.5.3
 
@@ -17,7 +17,7 @@
 
 ### ✨ 品牌与发布
 
-- 独立品牌 **Clash Verge for v2free**（产品名、Bundle ID、WinGet `V2Free.ClashVergeForV2free`）
+- 独立品牌定制（产品名、Bundle ID、WinGet `V2Free.ClashVergeForV2free`）
 - 配置 Tauri 更新签名，Release 补齐 `.sig` 与 `latest.json`
 - macOS 构建 job 启用签名密钥上传
 
