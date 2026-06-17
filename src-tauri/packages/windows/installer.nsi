@@ -511,6 +511,12 @@ Function .onInit
   ${Else}
     ${If} $UpdateMode = 1
       Call RestorePreviousInstallLocation
+      ; In-app update from legacy folder: install to unified path instead
+      ${If} $INSTDIR == "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}"
+        StrCpy $INSTDIR "$PROGRAMFILES64\${PRODUCTNAME}"
+      ${ElseIf} $INSTDIR == "$PROGRAMFILES\${LEGACY_DIR_V2FREE}"
+        StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
+      ${EndIf}
     ${EndIf}
   ${EndIf}
 
@@ -1070,6 +1076,9 @@ Section Install
     !insertmacro NSIS_HOOK_POSTINSTALL
   !endif
 
+  ; Remove leftover legacy fork directory after migrating to $INSTDIR
+  Call PurgeLeftoverLegacyV2FreeDirectory
+
   ; Auto close this page for passive mode
   ${If} $PassiveMode = 1
     SetAutoClose true
@@ -1432,7 +1441,7 @@ Function UninstallLegacyV2FreeInstall
   !endif
   Pop $R1
   ${If} $R1 = 0
-    DetailPrint "Stopping ${MAINBINARYNAME}.exe before legacy uninstall..."
+    DetailPrint "Stopping ${MAINBINARYNAME}.exe before legacy removal..."
     !if "${INSTALLMODE}" == "currentUser"
       nsis_tauri_utils::KillProcessCurrentUser "${MAINBINARYNAME}.exe"
     !else
@@ -1440,28 +1449,8 @@ Function UninstallLegacyV2FreeInstall
     !endif
   ${EndIf}
 
-  StrCpy $R1 ""
-  ReadRegStr $R1 SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}" "UninstallString"
-  ${If} $R1 == ""
-    ${If} ${FileExists} "$R0\uninstall.exe"
-      StrCpy $R1 "$R0\uninstall.exe"
-    ${EndIf}
-  ${EndIf}
-
-  ${If} $R1 != ""
-    StrCpy $R2 $R1 1
-    ${If} $R2 == "$\""
-      StrLen $R3 $R1
-      IntOp $R3 $R3 - 2
-      StrCpy $R1 $R1 $R3 1
-    ${EndIf}
-    StrCpy $R1 '$R1 /UPDATE /P _?=$R0'
-    DetailPrint "Running legacy uninstaller..."
-    ExecWait '$R1' $R3
-    ${If} $R3 <> 0
-      DetailPrint "Legacy uninstaller exit code: $R3"
-    ${EndIf}
-  ${EndIf}
+  DetailPrint "Force removing legacy directory: $R0"
+  RMDir /r /REBOOTOK "$R0"
 
   DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}"
   DeleteRegKey SHCTX "Software\v2free\${LEGACY_DIR_V2FREE}"
@@ -1469,6 +1458,44 @@ Function UninstallLegacyV2FreeInstall
   legacy_done:
   Pop $R3
   Pop $R2
+  Pop $R1
+  Pop $R0
+FunctionEnd
+
+; After install to unified path, delete any remaining legacy fork folder
+Function PurgeLeftoverLegacyV2FreeDirectory
+  Push $R0
+  Push $R1
+
+  Call ResolveLegacyV2FreeInstDir
+  Pop $R0
+  ${If} $R0 == ""
+    Goto purge_done
+  ${EndIf}
+
+  ${If} $INSTDIR == $R0
+    Goto purge_done
+  ${EndIf}
+  ${If} $INSTDIR == "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}"
+    Goto purge_done
+  ${EndIf}
+  ${If} $INSTDIR == "$PROGRAMFILES\${LEGACY_DIR_V2FREE}"
+    Goto purge_done
+  ${EndIf}
+
+  ${IfNot} ${FileExists} "$R0\${MAINBINARYNAME}.exe"
+    Goto purge_reg
+  ${EndIf}
+
+  DetailPrint "Purging leftover legacy directory: $R0"
+  !insertmacro CheckAllVergeProcesses
+  RMDir /r /REBOOTOK "$R0"
+
+  purge_reg:
+  DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}"
+  DeleteRegKey SHCTX "Software\v2free\${LEGACY_DIR_V2FREE}"
+
+  purge_done:
   Pop $R1
   Pop $R0
 FunctionEnd

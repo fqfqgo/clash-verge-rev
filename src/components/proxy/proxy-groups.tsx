@@ -270,6 +270,7 @@ export const ProxyGroups = (props: Props) => {
     if (!scrollElement || renderList.length === 0) return
 
     const frame = requestAnimationFrame(() => {
+      virtualizer.measure()
       if (virtualizer.getVirtualItems().length > 0) return
       scrollElement.scrollTop = 0
       scrollTopRef.current = 0
@@ -825,7 +826,8 @@ function ProxyVirtualList({
   const theme = useTheme()
   const stickyBackground =
     theme.palette.mode === 'dark' ? '#1e1f27' : 'var(--background-color)'
-  const useFallbackList = renderList.length > 0 && virtualItems.length === 0
+  const useFallbackList =
+    renderList.length > 0 && (virtualItems.length === 0 || totalSize === 0)
 
   if (useFallbackList) {
     return (

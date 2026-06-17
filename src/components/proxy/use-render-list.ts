@@ -183,7 +183,7 @@ export const useRenderList = (
   const prevListRef = useRef<IRenderItem[]>([])
 
   const proxiesSignature = proxiesData
-    ? `${proxiesData.groups.length}:${proxiesData.global?.name ?? ''}:${proxiesData.global?.all?.length ?? 0}`
+    ? `${proxiesData.groups.length}:${proxiesData.groups.map((g: { name: string; now: string; all?: unknown[] }) => `${g.name}:${g.now}:${g.all?.length ?? 0}`).join('|')}:${proxiesData.global?.name ?? ''}:${proxiesData.global?.all?.length ?? 0}`
     : ''
   const proxiesSignatureRef = useRef(proxiesSignature)
   if (proxiesSignature !== proxiesSignatureRef.current) {
