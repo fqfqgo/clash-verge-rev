@@ -75,6 +75,7 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+Var LegacyMigrated
 Var VC_REDIST_URL
 Var VC_REDIST_EXE
 Var VC_RUNTIME_READY
@@ -1430,6 +1431,7 @@ Function RunLegacyV2FreeUninstaller
     Goto run_legacy_done
   ${EndIf}
 
+  StrCpy $LegacyMigrated 1
   DetailPrint "Removing legacy install: $R0"
 
   !insertmacro CheckAllVergeProcesses
@@ -1551,6 +1553,21 @@ Function RepairLegacyV2FreeShortcuts
   !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
   !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
   !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
+
+  ; Legacy dir removed this run: IsShortcutTarget can no longer match the gone
+  ; target, so unconditionally rebuild shortcuts to the unified install path.
+  ${If} $LegacyMigrated = 1
+    CreateShortcut "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+    !insertmacro SetLnkAppUserModelId "$DESKTOP\${PRODUCTNAME}.lnk"
+    !if "${STARTMENUFOLDER}" != ""
+      CreateDirectory "$SMPROGRAMS\$AppStartMenuFolder"
+      CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+      !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk"
+    !else
+      CreateShortcut "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+      !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\${PRODUCTNAME}.lnk"
+    !endif
+  ${EndIf}
 
   repair_done:
   Pop $R1

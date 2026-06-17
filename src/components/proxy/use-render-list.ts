@@ -182,16 +182,6 @@ export const useRenderList = (
   const groupCacheRef = useRef<Map<string, GroupCache>>(new Map())
   const prevListRef = useRef<IRenderItem[]>([])
 
-  const proxiesSignature = proxiesData
-    ? `${proxiesData.groups.length}:${proxiesData.groups.map((g: { name: string; now: string; all?: unknown[] }) => `${g.name}:${g.now}:${g.all?.length ?? 0}`).join('|')}:${proxiesData.global?.name ?? ''}:${proxiesData.global?.all?.length ?? 0}`
-    : ''
-  const proxiesSignatureRef = useRef(proxiesSignature)
-  if (proxiesSignature !== proxiesSignatureRef.current) {
-    groupCacheRef.current.clear()
-    prevListRef.current = []
-    proxiesSignatureRef.current = proxiesSignature
-  }
-
   // 处理渲染列表
   const renderList: IRenderItem[] = useMemo(() => {
     if (!proxiesData) return []

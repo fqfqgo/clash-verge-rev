@@ -16,6 +16,7 @@ import { useLockFn } from 'ahooks'
 import {
   type Key,
   type MouseEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -28,7 +29,6 @@ import { useLocation } from 'react-router'
 import { delayGroup, healthcheckProxyProvider } from 'tauri-plugin-mihomo-api'
 
 import { BaseEmpty } from '@/components/base'
-import { BaseLoadingOverlay } from '@/components/base/base-loading-overlay'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
 import { useProxiesData } from '@/providers/app-data-context'
@@ -109,7 +109,7 @@ export const ProxyGroups = (props: Props) => {
   }>({ open: false, message: '' })
 
   const { verge } = useVerge()
-  const { proxies: proxiesData, isProxiesPending } = useProxiesData()
+  const { proxies: proxiesData } = useProxiesData()
   const groups = proxiesData?.groups
   const availableGroups = useMemo(() => {
     if (!groups) return []
@@ -137,18 +137,6 @@ export const ProxyGroups = (props: Props) => {
     activeSelectedGroup,
   )
 
-  useEffect(() => {
-    onProxies()
-  }, [pathname, onProxies])
-
-  useEffect(() => {
-    if (isProxiesPending || renderList.length > 0) return
-    const timer = setTimeout(() => {
-      onProxies()
-    }, 800)
-    return () => clearTimeout(timer)
-  }, [isProxiesPending, renderList.length, onProxies])
-
   const getGroupHeadState = useCallback(
     (groupName: string) => {
       const headItem = renderList.find(
@@ -172,14 +160,7 @@ export const ProxyGroups = (props: Props) => {
 
   const timeout = verge?.default_latency_timeout || 10000
 
-  const parentRef = useRef<HTMLDivElement | null>(null)
-  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
-    null,
-  )
-  const setScrollContainer = useCallback((node: HTMLDivElement | null) => {
-    parentRef.current = node
-    setScrollElement(node)
-  }, [])
+  const parentRef = useRef<HTMLDivElement>(null)
   const scrollPositionRef = useRef<Record<string, number>>({})
   const scrollTopRef = useRef(0)
   const showScrollTopRef = useRef(false)
@@ -218,7 +199,7 @@ export const ProxyGroups = (props: Props) => {
 
   const virtualizer = useVirtualizer({
     count: renderList.length,
-    getScrollElement: () => scrollElement,
+    getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
     overscan: 15,
     getItemKey: (index) => renderList[index]?.key ?? index,
@@ -247,14 +228,9 @@ export const ProxyGroups = (props: Props) => {
         const savedPosition = positions[scrollPositionKey]
 
         if (savedPosition !== undefined) {
-          const maxScroll = Math.max(0, node.scrollHeight - node.clientHeight)
-          const clamped = Math.min(Math.max(0, savedPosition), maxScroll)
-          node.scrollTop = clamped
-          scrollTopRef.current = clamped
-          if (clamped !== savedPosition) {
-            scrollPositionRef.current[scrollPositionKey] = clamped
-          }
-          const nextShowScrollTop = clamped > 100
+          node.scrollTop = savedPosition
+          scrollTopRef.current = savedPosition
+          const nextShowScrollTop = savedPosition > 100
           showScrollTopRef.current = nextShowScrollTop
           queueMicrotask(() => setShowScrollTop(nextShowScrollTop))
         }
@@ -263,22 +239,7 @@ export const ProxyGroups = (props: Props) => {
       console.error('Error restoring scroll position:', e)
     }
     restoredScrollKeyRef.current = scrollPositionKey
-  }, [pathname, renderList.length, scrollPositionKey, scrollElement])
-
-  // Recover when the scroll container mounts after the virtualizer initializes.
-  useLayoutEffect(() => {
-    if (!scrollElement || renderList.length === 0) return
-
-    const frame = requestAnimationFrame(() => {
-      virtualizer.measure()
-      if (virtualizer.getVirtualItems().length > 0) return
-      scrollElement.scrollTop = 0
-      scrollTopRef.current = 0
-      virtualizer.scrollToOffset(0)
-    })
-
-    return () => cancelAnimationFrame(frame)
-  }, [scrollElement, renderList.length, scrollPositionKey, virtualizer])
+  }, [pathname, renderList.length, scrollPositionKey])
 
   // 改为使用节流函数保存滚动位置
   const saveScrollPosition = useCallback(
@@ -320,7 +281,7 @@ export const ProxyGroups = (props: Props) => {
 
   // 添加和清理滚动事件监听器
   useEffect(() => {
-    const node = scrollElement
+    const node = parentRef.current
     if (!node) return
 
     const listener = handleScroll as EventListener
@@ -334,7 +295,7 @@ export const ProxyGroups = (props: Props) => {
       }
       node.removeEventListener('scroll', listener, options)
     }
-  }, [handleScroll, saveScrollPosition, scrollPositionKey, scrollElement])
+  }, [handleScroll, saveScrollPosition, scrollPositionKey])
 
   // 滚动到顶部
   const scrollToTop = useCallback(() => {
@@ -519,7 +480,7 @@ export const ProxyGroups = (props: Props) => {
 
   const renderProxyList = (height: string) => (
     <ProxyVirtualList
-      setScrollContainer={setScrollContainer}
+      parentRef={parentRef}
       height={height}
       totalSize={virtualizer.getTotalSize()}
       virtualItems={virtualItems}
@@ -538,21 +499,6 @@ export const ProxyGroups = (props: Props) => {
   if (mode === 'direct') {
     return <BaseEmpty textKey="proxies.page.messages.directMode" />
   }
-
-  const showProxyLoading = isProxiesPending && !proxiesData
-  const showProxyEmpty =
-    !isProxiesPending && renderList.length === 0 && !showProxyLoading
-
-  const proxyListBody = (height: string) => (
-    <>
-      <BaseLoadingOverlay isLoading={showProxyLoading} />
-      {showProxyEmpty ? (
-        <BaseEmpty textKey="shared.statuses.empty" />
-      ) : (
-        renderProxyList(height)
-      )}
-    </>
-  )
 
   if (isChainMode) {
     // 获取所有代理组
@@ -573,7 +519,7 @@ export const ProxyGroups = (props: Props) => {
               />
             )}
 
-            {proxyListBody(
+            {renderProxyList(
               showRuleHeader ? 'calc(100% - 80px)' : 'calc(100% - 14px)',
             )}
             <ScrollTopButton show={showScrollTop} onClick={scrollToTop} />
@@ -631,7 +577,7 @@ export const ProxyGroups = (props: Props) => {
         />
       )}
 
-      {proxyListBody('calc(100% - 14px)')}
+      {renderProxyList('calc(100% - 14px)')}
       <ScrollTopButton show={showScrollTop} onClick={scrollToTop} />
     </div>
   )
@@ -645,7 +591,7 @@ type VirtualListItem = {
 }
 
 interface ProxyVirtualListProps {
-  setScrollContainer: (node: HTMLDivElement | null) => void
+  parentRef: RefObject<HTMLDivElement | null>
   height: string
   totalSize: number
   virtualItems: VirtualListItem[]
@@ -809,7 +755,7 @@ function GroupSelectMenu({
 }
 
 function ProxyVirtualList({
-  setScrollContainer,
+  parentRef,
   height,
   totalSize,
   virtualItems,
@@ -826,31 +772,9 @@ function ProxyVirtualList({
   const theme = useTheme()
   const stickyBackground =
     theme.palette.mode === 'dark' ? '#1e1f27' : 'var(--background-color)'
-  const useFallbackList =
-    renderList.length > 0 && (virtualItems.length === 0 || totalSize === 0)
-
-  if (useFallbackList) {
-    return (
-      <div ref={setScrollContainer} style={{ height, overflow: 'auto' }}>
-        {renderList.map((item) => (
-          <ProxyRender
-            key={item.key}
-            item={item}
-            indent={indent}
-            onLocation={onLocation}
-            onCheckAll={onCheckAll}
-            onHeadState={onHeadState}
-            onChangeProxy={onChangeProxy}
-            isChainMode={isChainMode}
-          />
-        ))}
-        <div style={{ height: 8 }} />
-      </div>
-    )
-  }
 
   return (
-    <div ref={setScrollContainer} style={{ height, overflow: 'auto' }}>
+    <div ref={parentRef} style={{ height, overflow: 'auto' }}>
       <div style={{ height: totalSize, position: 'relative' }}>
         {virtualItems.map((virtualItem) => (
           <div
