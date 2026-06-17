@@ -139,6 +139,7 @@ export const AppDataProvider = ({
       lastUpdateTime = now
       refreshRules().catch(() => {})
       refreshRuleProviders().catch(() => {})
+      refreshProxy().catch(() => {})
     }
 
     const handleRefreshProxy = () => {

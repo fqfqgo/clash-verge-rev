@@ -28,6 +28,7 @@ import { useLocation } from 'react-router'
 import { delayGroup, healthcheckProxyProvider } from 'tauri-plugin-mihomo-api'
 
 import { BaseEmpty } from '@/components/base'
+import { BaseLoadingOverlay } from '@/components/base/base-loading-overlay'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
 import { useProxiesData } from '@/providers/app-data-context'
@@ -108,7 +109,7 @@ export const ProxyGroups = (props: Props) => {
   }>({ open: false, message: '' })
 
   const { verge } = useVerge()
-  const { proxies: proxiesData } = useProxiesData()
+  const { proxies: proxiesData, isProxiesPending } = useProxiesData()
   const groups = proxiesData?.groups
   const availableGroups = useMemo(() => {
     if (!groups) return []
@@ -135,6 +136,18 @@ export const ProxyGroups = (props: Props) => {
     isChainMode,
     activeSelectedGroup,
   )
+
+  useEffect(() => {
+    onProxies()
+  }, [pathname, onProxies])
+
+  useEffect(() => {
+    if (isProxiesPending || renderList.length > 0) return
+    const timer = setTimeout(() => {
+      onProxies()
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [isProxiesPending, renderList.length, onProxies])
 
   const getGroupHeadState = useCallback(
     (groupName: string) => {
@@ -525,6 +538,21 @@ export const ProxyGroups = (props: Props) => {
     return <BaseEmpty textKey="proxies.page.messages.directMode" />
   }
 
+  const showProxyLoading = isProxiesPending && !proxiesData
+  const showProxyEmpty =
+    !isProxiesPending && renderList.length === 0 && !showProxyLoading
+
+  const proxyListBody = (height: string) => (
+    <>
+      <BaseLoadingOverlay isLoading={showProxyLoading} />
+      {showProxyEmpty ? (
+        <BaseEmpty textKey="shared.statuses.empty" />
+      ) : (
+        renderProxyList(height)
+      )}
+    </>
+  )
+
   if (isChainMode) {
     // 获取所有代理组
     const proxyGroups = proxiesData?.groups || []
@@ -544,7 +572,7 @@ export const ProxyGroups = (props: Props) => {
               />
             )}
 
-            {renderProxyList(
+            {proxyListBody(
               showRuleHeader ? 'calc(100% - 80px)' : 'calc(100% - 14px)',
             )}
             <ScrollTopButton show={showScrollTop} onClick={scrollToTop} />
@@ -602,7 +630,7 @@ export const ProxyGroups = (props: Props) => {
         />
       )}
 
-      {renderProxyList('calc(100% - 14px)')}
+      {proxyListBody('calc(100% - 14px)')}
       <ScrollTopButton show={showScrollTop} onClick={scrollToTop} />
     </div>
   )
@@ -797,6 +825,27 @@ function ProxyVirtualList({
   const theme = useTheme()
   const stickyBackground =
     theme.palette.mode === 'dark' ? '#1e1f27' : 'var(--background-color)'
+  const useFallbackList = renderList.length > 0 && virtualItems.length === 0
+
+  if (useFallbackList) {
+    return (
+      <div ref={setScrollContainer} style={{ height, overflow: 'auto' }}>
+        {renderList.map((item) => (
+          <ProxyRender
+            key={item.key}
+            item={item}
+            indent={indent}
+            onLocation={onLocation}
+            onCheckAll={onCheckAll}
+            onHeadState={onHeadState}
+            onChangeProxy={onChangeProxy}
+            isChainMode={isChainMode}
+          />
+        ))}
+        <div style={{ height: 8 }} />
+      </div>
+    )
+  }
 
   return (
     <div ref={setScrollContainer} style={{ height, overflow: 'auto' }}>
