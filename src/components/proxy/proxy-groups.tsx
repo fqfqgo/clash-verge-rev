@@ -16,7 +16,6 @@ import { useLockFn } from 'ahooks'
 import {
   type Key,
   type MouseEvent,
-  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -160,7 +159,14 @@ export const ProxyGroups = (props: Props) => {
 
   const timeout = verge?.default_latency_timeout || 10000
 
-  const parentRef = useRef<HTMLDivElement>(null)
+  const parentRef = useRef<HTMLDivElement | null>(null)
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
+    null,
+  )
+  const setScrollContainer = useCallback((node: HTMLDivElement | null) => {
+    parentRef.current = node
+    setScrollElement(node)
+  }, [])
   const scrollPositionRef = useRef<Record<string, number>>({})
   const scrollTopRef = useRef(0)
   const showScrollTopRef = useRef(false)
@@ -199,7 +205,7 @@ export const ProxyGroups = (props: Props) => {
 
   const virtualizer = useVirtualizer({
     count: renderList.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => 56,
     overscan: 15,
     getItemKey: (index) => renderList[index]?.key ?? index,
@@ -228,9 +234,14 @@ export const ProxyGroups = (props: Props) => {
         const savedPosition = positions[scrollPositionKey]
 
         if (savedPosition !== undefined) {
-          node.scrollTop = savedPosition
-          scrollTopRef.current = savedPosition
-          const nextShowScrollTop = savedPosition > 100
+          const maxScroll = Math.max(0, node.scrollHeight - node.clientHeight)
+          const clamped = Math.min(Math.max(0, savedPosition), maxScroll)
+          node.scrollTop = clamped
+          scrollTopRef.current = clamped
+          if (clamped !== savedPosition) {
+            scrollPositionRef.current[scrollPositionKey] = clamped
+          }
+          const nextShowScrollTop = clamped > 100
           showScrollTopRef.current = nextShowScrollTop
           queueMicrotask(() => setShowScrollTop(nextShowScrollTop))
         }
@@ -239,7 +250,21 @@ export const ProxyGroups = (props: Props) => {
       console.error('Error restoring scroll position:', e)
     }
     restoredScrollKeyRef.current = scrollPositionKey
-  }, [pathname, renderList.length, scrollPositionKey])
+  }, [pathname, renderList.length, scrollPositionKey, scrollElement])
+
+  // Recover when the scroll container mounts after the virtualizer initializes.
+  useLayoutEffect(() => {
+    if (!scrollElement || renderList.length === 0) return
+
+    const frame = requestAnimationFrame(() => {
+      if (virtualizer.getVirtualItems().length > 0) return
+      scrollElement.scrollTop = 0
+      scrollTopRef.current = 0
+      virtualizer.scrollToOffset(0)
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [scrollElement, renderList.length, scrollPositionKey, virtualizer])
 
   // 改为使用节流函数保存滚动位置
   const saveScrollPosition = useCallback(
@@ -281,7 +306,7 @@ export const ProxyGroups = (props: Props) => {
 
   // 添加和清理滚动事件监听器
   useEffect(() => {
-    const node = parentRef.current
+    const node = scrollElement
     if (!node) return
 
     const listener = handleScroll as EventListener
@@ -295,7 +320,7 @@ export const ProxyGroups = (props: Props) => {
       }
       node.removeEventListener('scroll', listener, options)
     }
-  }, [handleScroll, saveScrollPosition, scrollPositionKey])
+  }, [handleScroll, saveScrollPosition, scrollPositionKey, scrollElement])
 
   // 滚动到顶部
   const scrollToTop = useCallback(() => {
@@ -480,7 +505,7 @@ export const ProxyGroups = (props: Props) => {
 
   const renderProxyList = (height: string) => (
     <ProxyVirtualList
-      parentRef={parentRef}
+      setScrollContainer={setScrollContainer}
       height={height}
       totalSize={virtualizer.getTotalSize()}
       virtualItems={virtualItems}
@@ -591,7 +616,7 @@ type VirtualListItem = {
 }
 
 interface ProxyVirtualListProps {
-  parentRef: RefObject<HTMLDivElement | null>
+  setScrollContainer: (node: HTMLDivElement | null) => void
   height: string
   totalSize: number
   virtualItems: VirtualListItem[]
@@ -755,7 +780,7 @@ function GroupSelectMenu({
 }
 
 function ProxyVirtualList({
-  parentRef,
+  setScrollContainer,
   height,
   totalSize,
   virtualItems,
@@ -774,7 +799,7 @@ function ProxyVirtualList({
     theme.palette.mode === 'dark' ? '#1e1f27' : 'var(--background-color)'
 
   return (
-    <div ref={parentRef} style={{ height, overflow: 'auto' }}>
+    <div ref={setScrollContainer} style={{ height, overflow: 'auto' }}>
       <div style={{ height: totalSize, position: 'relative' }}>
         {virtualItems.map((virtualItem) => (
           <div
