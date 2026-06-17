@@ -1557,6 +1557,14 @@ Function RepairLegacyV2FreeShortcuts
   ; Legacy dir removed this run: IsShortcutTarget can no longer match the gone
   ; target, so unconditionally rebuild shortcuts to the unified install path.
   ${If} $LegacyMigrated = 1
+    ; Remove stale shortcuts created under the old product name to avoid duplicates
+    !insertmacro UnpinShortcut "$DESKTOP\${LEGACY_DIR_V2FREE}.lnk"
+    Delete "$DESKTOP\${LEGACY_DIR_V2FREE}.lnk"
+    Delete "C:\Users\Public\Desktop\${LEGACY_DIR_V2FREE}.lnk"
+    !insertmacro UnpinShortcut "$SMPROGRAMS\${LEGACY_DIR_V2FREE}.lnk"
+    Delete "$SMPROGRAMS\${LEGACY_DIR_V2FREE}.lnk"
+    RMDir /r "$SMPROGRAMS\${LEGACY_DIR_V2FREE}"
+
     CreateShortcut "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
     !insertmacro SetLnkAppUserModelId "$DESKTOP\${PRODUCTNAME}.lnk"
     !if "${STARTMENUFOLDER}" != ""
