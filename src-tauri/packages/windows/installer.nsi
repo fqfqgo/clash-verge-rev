@@ -545,6 +545,23 @@ FunctionEnd
 
 
 !macro CheckAllVergeProcesses
+  ; Gracefully stop the service first so it releases its verge-mihomo.exe child
+  ; (killing the service process directly leaves the sidecar locked / respawned)
+  SimpleSC::ExistsService "clash_verge_service"
+  Pop $0
+  ${If} $0 == 0
+    SimpleSC::ServiceIsRunning "clash_verge_service"
+    Pop $0
+    Pop $1
+    ${If} $0 == 0
+    ${AndIf} $1 == 1
+      DetailPrint "Stopping ${PRODUCTNAME} Service before file replacement..."
+      SimpleSC::StopService "clash_verge_service" 1 30
+      Pop $0
+      Sleep 1000
+    ${EndIf}
+  ${EndIf}
+
   ; Check if clash-verge-service.exe is running
   !if "${INSTALLMODE}" == "currentUser"
     nsis_tauri_utils::FindProcessCurrentUser "clash-verge-service.exe"
@@ -642,6 +659,9 @@ FunctionEnd
       !endif
     ${EndIf}
   ${EndIf}
+
+  ; Give Windows time to release file handles before overwriting the binaries
+  Sleep 1000
 !macroend
 
 !macro StartVergeService
