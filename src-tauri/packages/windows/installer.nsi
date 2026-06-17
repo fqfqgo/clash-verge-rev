@@ -63,6 +63,9 @@ ${StrLoc}
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
 !define MANUKEY "Software\${MANUFACTURER}"
 !define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
+; Legacy fork install folder (migrated away on upgrade)
+!define LEGACY_DIR_V2FREE "Clash Verge for v2free"
+!define LEGACY_MANU_VERGE "Clash Verge Rev"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"
@@ -483,6 +486,9 @@ Function .onInit
 
   !insertmacro SetContext
 
+  ; Migrate off legacy fork install folder before choosing $INSTDIR
+  Call UninstallLegacyV2FreeInstall
+
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; Set default install location
     !if "${INSTALLMODE}" == "perMachine"
@@ -502,6 +508,10 @@ Function .onInit
     !endif
 
     Call RestorePreviousInstallLocation
+  ${Else}
+    ${If} $UpdateMode = 1
+      Call RestorePreviousInstallLocation
+    ${EndIf}
   ${EndIf}
 
 
@@ -613,6 +623,24 @@ FunctionEnd
     !else
       nsis_tauri_utils::KillProcess "clash-meta.exe"
     !endif
+  ${EndIf}
+
+  ; In-app update: kill the main app so the installer can replace files
+  ${If} $UpdateMode = 1
+    !if "${INSTALLMODE}" == "currentUser"
+      nsis_tauri_utils::FindProcessCurrentUser "${MAINBINARYNAME}.exe"
+    !else
+      nsis_tauri_utils::FindProcess "${MAINBINARYNAME}.exe"
+    !endif
+    Pop $R0
+    ${If} $R0 = 0
+      DetailPrint "Kill ${MAINBINARYNAME}.exe for in-app update..."
+      !if "${INSTALLMODE}" == "currentUser"
+        nsis_tauri_utils::KillProcessCurrentUser "${MAINBINARYNAME}.exe"
+      !else
+        nsis_tauri_utils::KillProcess "${MAINBINARYNAME}.exe"
+      !endif
+    ${EndIf}
   ${EndIf}
 !macroend
 
@@ -886,8 +914,8 @@ Section Install
 
   nsExec::Exec 'netsh int tcp res'
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
   !insertmacro CheckAllVergeProcesses
+  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Ensure startup folders exist
   CreateDirectory "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
@@ -1278,9 +1306,203 @@ Section Uninstall
 SectionEnd
 
 Function RestorePreviousInstallLocation
-  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-  StrCmp $4 "" +2 0
-    StrCpy $INSTDIR $4
+  Push $R0
+  Push $R1
+
+  ReadRegStr $R0 SHCTX "${MANUPRODUCTKEY}" ""
+  Push $R0
+  Call ValidateAndSetInstDir
+  Pop $R1
+  ${If} $R1 == 1
+    Goto restore_done
+  ${EndIf}
+
+  Push "${PRODUCTNAME}"
+  Call TryRestoreFromUninstallKey
+  Pop $R1
+  ${If} $R1 == 1
+    Goto restore_done
+  ${EndIf}
+
+  Push "Software\${LEGACY_MANU_VERGE}\${PRODUCTNAME}"
+  Call TryRestoreFromManuProductReg
+  Pop $R1
+  ${If} $R1 == 1
+    Goto restore_done
+  ${EndIf}
+
+  ${If} ${FileExists} "$PROGRAMFILES64\${PRODUCTNAME}\${MAINBINARYNAME}.exe"
+    StrCpy $INSTDIR "$PROGRAMFILES64\${PRODUCTNAME}"
+    Goto restore_done
+  ${EndIf}
+  ${If} ${FileExists} "$PROGRAMFILES\${PRODUCTNAME}\${MAINBINARYNAME}.exe"
+    StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCTNAME}"
+  ${EndIf}
+
+  restore_done:
+  Pop $R1
+  Pop $R0
+FunctionEnd
+
+; Returns legacy fork install dir on stack, or empty string if none
+Function ResolveLegacyV2FreeInstDir
+  Push $R0
+  Push $R1
+  Push $R2
+  Push $R3
+  StrCpy $R0 ""
+
+  ReadRegStr $R1 SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}" "InstallLocation"
+  ${If} $R1 != ""
+    StrLen $R3 $R1
+    ${If} $R3 > 2
+      IntOp $R3 $R3 - 2
+      StrCpy $R1 $R1 $R3 1
+    ${EndIf}
+    ${If} ${FileExists} "$R1\${MAINBINARYNAME}.exe"
+      StrCpy $R0 $R1
+      Goto resolve_done
+    ${EndIf}
+  ${EndIf}
+
+  ReadRegStr $R1 SHCTX "Software\v2free\${LEGACY_DIR_V2FREE}" ""
+  ${If} $R1 != ""
+    ${If} ${FileExists} "$R1\${MAINBINARYNAME}.exe"
+      StrCpy $R0 $R1
+      Goto resolve_done
+    ${EndIf}
+  ${EndIf}
+
+  ${If} ${FileExists} "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+    StrCpy $R0 "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}"
+    Goto resolve_done
+  ${EndIf}
+  ${If} ${FileExists} "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+    StrCpy $R0 "$PROGRAMFILES\${LEGACY_DIR_V2FREE}"
+  ${EndIf}
+
+  resolve_done:
+  Pop $R3
+  Pop $R2
+  Pop $R1
+  Exch $R0
+FunctionEnd
+
+; Uninstall legacy fork folder so installs use Program Files\Clash Verge
+Function UninstallLegacyV2FreeInstall
+  Push $R0
+  Push $R1
+  Push $R2
+  Push $R3
+
+  Call ResolveLegacyV2FreeInstDir
+  Pop $R0
+  ${If} $R0 == ""
+    Goto legacy_done
+  ${EndIf}
+
+  DetailPrint "Removing legacy install: $R0"
+
+  !insertmacro CheckAllVergeProcesses
+
+  !if "${INSTALLMODE}" == "currentUser"
+    nsis_tauri_utils::FindProcessCurrentUser "${MAINBINARYNAME}.exe"
+  !else
+    nsis_tauri_utils::FindProcess "${MAINBINARYNAME}.exe"
+  !endif
+  Pop $R1
+  ${If} $R1 = 0
+    DetailPrint "Stopping ${MAINBINARYNAME}.exe before legacy uninstall..."
+    !if "${INSTALLMODE}" == "currentUser"
+      nsis_tauri_utils::KillProcessCurrentUser "${MAINBINARYNAME}.exe"
+    !else
+      nsis_tauri_utils::KillProcess "${MAINBINARYNAME}.exe"
+    !endif
+  ${EndIf}
+
+  StrCpy $R1 ""
+  ReadRegStr $R1 SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}" "UninstallString"
+  ${If} $R1 == ""
+    ${If} ${FileExists} "$R0\uninstall.exe"
+      StrCpy $R1 "$R0\uninstall.exe"
+    ${EndIf}
+  ${EndIf}
+
+  ${If} $R1 != ""
+    StrCpy $R2 $R1 1
+    ${If} $R2 == "$\""
+      StrLen $R3 $R1
+      IntOp $R3 $R3 - 2
+      StrCpy $R1 $R1 $R3 1
+    ${EndIf}
+    StrCpy $R1 '$R1 /UPDATE /P _?=$R0'
+    DetailPrint "Running legacy uninstaller..."
+    ExecWait '$R1' $R3
+    ${If} $R3 <> 0
+      DetailPrint "Legacy uninstaller exit code: $R3"
+    ${EndIf}
+  ${EndIf}
+
+  DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}"
+  DeleteRegKey SHCTX "Software\v2free\${LEGACY_DIR_V2FREE}"
+
+  legacy_done:
+  Pop $R3
+  Pop $R2
+  Pop $R1
+  Pop $R0
+FunctionEnd
+
+; $R0 = candidate path → returns 1 on stack if $INSTDIR was set
+Function ValidateAndSetInstDir
+  Exch $R0
+  Push $R1
+  StrCpy $R1 0
+  ${If} $R0 != ""
+    IfFileExists "$R0\${MAINBINARYNAME}.exe" 0 validate_done
+      StrCpy $INSTDIR $R0
+      StrCpy $R1 1
+  ${EndIf}
+  validate_done:
+  Pop $R0
+  Exch $R1
+FunctionEnd
+
+; Stack: ARP display name → returns 1 if restored
+Function TryRestoreFromUninstallKey
+  Exch $R0
+  Push $R1
+  Push $R2
+  Push $R3
+  StrCpy $R1 0
+  ReadRegStr $R2 SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\$R0" "InstallLocation"
+  ${If} $R2 != ""
+    StrLen $R3 $R2
+    ${If} $R3 > 2
+      IntOp $R3 $R3 - 2
+      StrCpy $R2 $R2 $R3 1
+    ${EndIf}
+    Push $R2
+    Call ValidateAndSetInstDir
+    Pop $R1
+  ${EndIf}
+  Pop $R3
+  Pop $R2
+  Pop $R0
+  Exch $R1
+FunctionEnd
+
+; Stack: full MANUPRODUCTKEY-style path → returns 1 if restored
+Function TryRestoreFromManuProductReg
+  Exch $R0
+  Push $R1
+  ReadRegStr $R1 SHCTX "$R0" ""
+  Push $R1
+  Call ValidateAndSetInstDir
+  Pop $R1
+  Pop $R1
+  Pop $R0
+  Exch $R1
 FunctionEnd
 
 Function Skip

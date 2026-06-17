@@ -4,10 +4,17 @@ export const FORK_GITHUB_RELEASES = `${FORK_GITHUB_REPO}/releases`
 export const FORK_DOC_URL = 'https://cdn.v2ai.top/doc/#/clash-verge'
 export const FORK_PRODUCT_SUFFIX = 'for v2free'
 
+/**
+ * Unified install path: `%ProgramFiles%\Clash Verge`. Legacy fork folder is
+ * uninstalled by NSIS before setup. UI-only branding below.
+ */
+
+/** Settings / home version label only. */
 export function forkVersionLabel(version: string) {
   return `${FORK_PRODUCT_SUFFIX} v${version}`
 }
 
+/** Mirrors Rust `app_window_title()` — window title bar only. */
 export function forkWindowTitle(version: string) {
   return `Clash Verge ${forkVersionLabel(version)}`
 }

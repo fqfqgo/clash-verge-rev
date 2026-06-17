@@ -1,0 +1,26 @@
+---
+description: Windows 统一安装目录与旧版迁移
+alwaysApply: true
+---
+
+# 统一安装路径：`%ProgramFiles%\Clash Verge`
+
+- `productName` 必须为 **`Clash Verge`**
+- 主程序：**`clash-verge.exe`**
+- 安装包资产：**`Clash.Verge_*`**
+
+## 旧版迁移（非原地覆盖）
+
+若检测到旧目录 **`%ProgramFiles%\Clash Verge for v2free`**：
+
+1. 结束相关进程  
+2. 调用旧目录下的 **`uninstall.exe`**（`/UPDATE /P`，保留用户配置数据）  
+3. 清理旧版注册表项  
+4. 再安装到 **`%ProgramFiles%\Clash Verge`**
+
+实现：`installer.nsi` → `UninstallLegacyV2FreeInstall`（在 `.onInit` 中调用）
+
+## Fork 品牌仅 UI
+
+- 窗口标题：`app_window_title()`  
+- 设置 / 首页版本旁：`forkVersionLabel()`

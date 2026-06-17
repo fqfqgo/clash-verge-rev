@@ -25,6 +25,7 @@ pub static VERGE_CONFIG: &str = "verge.yaml";
 pub static PROFILE_YAML: &str = "profiles.yaml";
 
 pub fn app_window_title() -> String {
+    // UI-only fork branding. Unified install dir: Program Files\Clash Verge.
     format!("Clash Verge for v2free v{}", env!("CARGO_PKG_VERSION"))
 }
 

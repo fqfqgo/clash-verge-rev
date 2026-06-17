@@ -8,11 +8,12 @@ Scope: machine
 UpgradeBehavior: install
 FileExtensions:
   - clash
-ProductCode: Clash Verge for v2free
+ProductCode: Clash Verge
 AppsAndFeaturesEntries:
+  - ProductCode: Clash Verge
   - ProductCode: Clash Verge for v2free
 InstallationMetadata:
-  DefaultInstallLocation: '%ProgramFiles%\Clash Verge for v2free'
+  DefaultInstallLocation: '%ProgramFiles%\Clash Verge'
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/fqfqgo/clash-verge-rev/releases/download/v2.5.2/Clash.Verge.for.v2free_2.5.2_x64-setup.exe

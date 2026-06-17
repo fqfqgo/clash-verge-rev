@@ -1,7 +1,7 @@
 use super::CmdResult;
 use crate::config::Config;
-use crate::core::autostart;
-use crate::{cmd::StringifyErr as _, feat, utils::dirs};
+use crate::core::{CoreManager, autostart, handle};
+use crate::{cmd::StringifyErr as _, feat, utils::{self, dirs}};
 use smartstring::alias::String;
 use std::process::Command;
 use tauri::{AppHandle, Manager as _};
@@ -173,6 +173,33 @@ pub fn open_devtools(app_handle: AppHandle) {
 #[tauri::command]
 pub async fn exit_app() {
     feat::quit().await;
+}
+
+/// 应用内更新前调用：释放文件锁并允许安装器立即退出主进程
+#[tauri::command]
+pub async fn prepare_for_update() {
+    let handle = handle::Handle::global();
+    handle.set_is_updating();
+    handle.set_is_exiting();
+
+    utils::server::shutdown_embedded_server();
+    let _ = CoreManager::global().stop_core().await;
+}
+
+/// 应用内更新失败时恢复退出拦截
+#[tauri::command]
+pub fn clear_prepare_for_update() {
+    let handle = handle::Handle::global();
+    handle.clear_is_updating();
+    handle.clear_is_exiting();
+}
+
+/// Windows：安装器已启动后强制退出当前进程，由 NSIS /R 拉起新版本
+#[tauri::command]
+pub fn exit_for_update() {
+    if handle::Handle::global().is_updating() {
+        std::process::exit(0);
+    }
 }
 
 /// 重启应用

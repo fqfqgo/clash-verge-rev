@@ -234,6 +234,9 @@ impl SilentUpdater {
         let version = update.version.clone();
         logging!(info, Type::System, "Installing cached update v{version} at startup...");
 
+        super::handle::Handle::global().set_is_updating();
+        super::handle::Handle::global().set_is_exiting();
+
         // Show splash window so user knows the app is updating, not frozen
         Self::show_update_splash(app_handle, &version);
 
@@ -279,6 +282,7 @@ impl SilentUpdater {
 
         // Close splash window if install failed and app continues normally
         if !success {
+            super::handle::Handle::global().clear_is_updating();
             Self::close_update_splash(app_handle);
         }
 
@@ -325,7 +329,7 @@ impl SilentUpdater {
         use tauri::{WebviewUrl, WebviewWindowBuilder};
 
         let window = match WebviewWindowBuilder::new(app_handle, "update-splash", WebviewUrl::App("index.html".into()))
-            .title("Clash Verge for v2free - Updating")
+            .title("Clash Verge - Updating")
             .inner_size(300.0, 180.0)
             .resizable(false)
             .maximizable(false)

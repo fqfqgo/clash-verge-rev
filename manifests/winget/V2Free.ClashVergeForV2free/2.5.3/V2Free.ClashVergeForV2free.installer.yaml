@@ -11,6 +11,7 @@ FileExtensions:
 ProductCode: Clash Verge
 AppsAndFeaturesEntries:
   - ProductCode: Clash Verge
+  - ProductCode: Clash Verge for v2free
 InstallationMetadata:
   DefaultInstallLocation: '%ProgramFiles%\Clash Verge'
 Installers:

@@ -41,10 +41,7 @@ async function resolvePortable() {
     await fsp.writeFile(path.join(configDir, 'PORTABLE'), '')
   }
 
-  const tauriConf = JSON.parse(
-    await fsp.readFile('./src-tauri/tauri.conf.json', 'utf8'),
-  )
-  const appExe = `${tauriConf.productName}.exe`
+  const appExe = 'clash-verge.exe'
 
   const zip = new AdmZip()
 

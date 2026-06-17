@@ -52,19 +52,35 @@ async function resolveUpdater() {
   // const preReleaseRegex = /^v\d+\.\d+\.\d+-(alpha|beta|rc|pre)/i; // Matches vX.Y.Z-alpha/beta/rc format
   const preReleaseRegex = /^(alpha|beta|rc|pre)$/i // Matches exact alpha/beta/rc/pre tags
 
-  // Get the latest stable tag and pre-release tag
-  const stableTag = tags.find((t) => stableTagRegex.test(t.name))
+  const stableTags = tags
+    .filter((t) => stableTagRegex.test(t.name))
+    .sort((a, b) => compareSemverTag(b.name, a.name))
+
   const preReleaseTag = tags.find((t) => preReleaseRegex.test(t.name))
 
   console.log('All tags:', tags.map((t) => t.name).join(', '))
-  console.log('Stable tag:', stableTag ? stableTag.name : 'None found')
+  console.log(
+    'Stable tags (semver desc):',
+    stableTags.map((t) => t.name).join(', ') || 'None found',
+  )
   console.log(
     'Pre-release tag:',
     preReleaseTag ? preReleaseTag.name : 'None found',
   )
   console.log()
 
-  // Process stable release
+  // Process the newest stable tag that has a published release with assets
+  const stableTag = await findLatestPublishableStableTag(
+    github,
+    options,
+    stableTags,
+  )
+  console.log(
+    'Selected stable tag:',
+    stableTag ? stableTag.name : 'None (update.json will not be changed)',
+  )
+  console.log()
+
   if (stableTag) {
     await processRelease(github, options, stableTag, false)
   }
@@ -73,6 +89,59 @@ async function resolveUpdater() {
   if (preReleaseTag) {
     await processRelease(github, options, preReleaseTag, true)
   }
+}
+
+function compareSemverTag(a, b) {
+  const parse = (tagName) => {
+    const match = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tagName)
+    if (!match) return null
+    return [Number(match[1]), Number(match[2]), Number(match[3])]
+  }
+
+  const va = parse(a)
+  const vb = parse(b)
+  if (!va && !vb) return 0
+  if (!va) return 1
+  if (!vb) return -1
+
+  for (let i = 0; i < 3; i++) {
+    if (va[i] !== vb[i]) return va[i] - vb[i]
+  }
+  return 0
+}
+
+async function findLatestPublishableStableTag(github, options, stableTags) {
+  for (const tag of stableTags) {
+    try {
+      const { data: release } = await github.rest.repos.getReleaseByTag({
+        ...options,
+        tag: tag.name,
+      })
+
+      if (release.draft) {
+        console.log(`Skipping ${tag.name}: release is still a draft`)
+        continue
+      }
+
+      const hasWin64 = release.assets.some((asset) =>
+        asset.name.endsWith('x64-setup.exe'),
+      )
+      if (!hasWin64) {
+        console.log(`Skipping ${tag.name}: missing x64-setup.exe asset`)
+        continue
+      }
+
+      return tag
+    } catch (error) {
+      if (error.status === 404) {
+        console.log(`Skipping ${tag.name}: no GitHub release found`)
+        continue
+      }
+      throw error
+    }
+  }
+
+  return null
 }
 
 // Process a release (stable or alpha) and generate update files
@@ -197,6 +266,15 @@ async function processRelease(github, options, tag, isAlpha) {
         delete updateData.platforms[key]
       }
     })
+
+    const win64 =
+      updateData.platforms['windows-x86_64'] ?? updateData.platforms.win64
+    if (!win64?.url || !win64?.signature) {
+      console.log(
+        `[Error]: ${tag.name} is missing Windows x64 update metadata, skipping upload`,
+      )
+      return
+    }
 
     // Generate a proxy update file for accelerated GitHub resources
     const updateDataNew = JSON.parse(JSON.stringify(updateData))

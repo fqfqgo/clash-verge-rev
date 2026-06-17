@@ -10,12 +10,14 @@ use super::notification::{FrontendEvent, NotificationSystem};
 #[derive(Debug)]
 pub struct Handle {
     is_exiting: AtomicBool,
+    is_updating: AtomicBool,
 }
 
 impl Default for Handle {
     fn default() -> Self {
         Self {
             is_exiting: AtomicBool::new(false),
+            is_updating: AtomicBool::new(false),
         }
     }
 }
@@ -78,6 +80,22 @@ impl Handle {
 
     pub fn is_exiting(&self) -> bool {
         self.is_exiting.load(Ordering::Acquire)
+    }
+
+    pub fn set_is_updating(&self) {
+        self.is_updating.store(true, Ordering::Release);
+    }
+
+    pub fn clear_is_updating(&self) {
+        self.is_updating.store(false, Ordering::Release);
+    }
+
+    pub fn is_updating(&self) -> bool {
+        self.is_updating.load(Ordering::Acquire)
+    }
+
+    pub fn clear_is_exiting(&self) {
+        self.is_exiting.store(false, Ordering::Release);
     }
 
     fn send_event(event: FrontendEvent) {

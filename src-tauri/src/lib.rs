@@ -187,6 +187,9 @@ mod app_init {
             cmd::download_icon_cache,
             cmd::open_devtools,
             cmd::exit_app,
+            cmd::prepare_for_update,
+            cmd::clear_prepare_for_update,
+            cmd::exit_for_update,
             cmd::get_network_interfaces_info,
             cmd::get_profiles,
             cmd::enhance_profiles,
@@ -405,6 +408,8 @@ pub fn run() {
         tauri::RunEvent::ExitRequested { api, code, .. } => {
             if module::lightweight::is_in_lightweight_mode() && !handle::Handle::global().is_exiting() {
                 api.prevent_exit();
+            } else if handle::Handle::global().is_updating() {
+                logging!(info, Type::System, "Update install: allowing immediate exit");
             } else if code.is_none() {
                 api.prevent_exit();
                 if !handle::Handle::global().is_exiting() {

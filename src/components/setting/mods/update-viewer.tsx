@@ -1,4 +1,5 @@
 import { alpha, Box, Button, LinearProgress } from '@mui/material'
+import { invoke } from '@tauri-apps/api/core'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { open as openUrl } from '@tauri-apps/plugin-shell'
 import type { DownloadEvent } from '@tauri-apps/plugin-updater'
@@ -15,6 +16,7 @@ import { useUpdate } from '@/hooks/use-update'
 import { portableFlag } from '@/pages/_layout'
 import { showNotice } from '@/services/notice-service'
 import { useSetUpdateState, useUpdateState } from '@/services/states'
+import getSystem from '@/utils/get-system'
 
 type MarkdownNode = {
   type: string
@@ -185,9 +187,16 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
     }
 
     try {
+      await invoke('prepare_for_update')
       await updateInfo.downloadAndInstall(onDownloadEvent)
-      await relaunch()
+      if (getSystem() === 'windows') {
+        // NSIS /R relaunches the new build; exit so installer can replace files.
+        await invoke('exit_for_update')
+      } else {
+        await relaunch()
+      }
     } catch (err: any) {
+      await invoke('clear_prepare_for_update').catch(() => {})
       showNotice.error(err)
     } finally {
       setUpdateState(false)
