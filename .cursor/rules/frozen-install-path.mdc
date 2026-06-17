@@ -14,7 +14,7 @@ alwaysApply: true
 若检测到旧目录 **`%ProgramFiles%\Clash Verge for v2free`**：
 
 1. 结束相关进程  
-2. 调用旧目录下的 **`uninstall.exe`**（`/UPDATE /P`，保留用户配置数据）  
+2. 以正确引号调用旧目录 **`uninstall.exe /S`** 做完整静默卸载（保留 AppData 用户配置；不用 `/UPDATE`）  
 3. 清理旧版注册表项  
 4. 再安装到 **`%ProgramFiles%\Clash Verge`**
 

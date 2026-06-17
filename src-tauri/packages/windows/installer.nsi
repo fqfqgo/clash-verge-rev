@@ -1072,6 +1072,9 @@ Section Install
     Call CreateOrUpdateDesktopShortcut
   ${EndIf}
 
+  ; In-app update skips shortcut creation; repair links still pointing at legacy folder
+  Call RepairLegacyV2FreeShortcuts
+
   !ifmacrodef NSIS_HOOK_POSTINSTALL
     !insertmacro NSIS_HOOK_POSTINSTALL
   !endif
@@ -1417,17 +1420,14 @@ Function ResolveLegacyV2FreeInstDir
   Exch $R0
 FunctionEnd
 
-; Uninstall legacy fork folder so installs use Program Files\Clash Verge
-Function UninstallLegacyV2FreeInstall
-  Push $R0
+; Silent full uninstall of legacy fork dir at $R0; RMDir fallback on failure
+Function RunLegacyV2FreeUninstaller
+  Exch $R0
   Push $R1
-  Push $R2
   Push $R3
 
-  Call ResolveLegacyV2FreeInstDir
-  Pop $R0
   ${If} $R0 == ""
-    Goto legacy_done
+    Goto run_legacy_done
   ${EndIf}
 
   DetailPrint "Removing legacy install: $R0"
@@ -1441,7 +1441,7 @@ Function UninstallLegacyV2FreeInstall
   !endif
   Pop $R1
   ${If} $R1 = 0
-    DetailPrint "Stopping ${MAINBINARYNAME}.exe before legacy removal..."
+    DetailPrint "Stopping ${MAINBINARYNAME}.exe before legacy uninstall..."
     !if "${INSTALLMODE}" == "currentUser"
       nsis_tauri_utils::KillProcessCurrentUser "${MAINBINARYNAME}.exe"
     !else
@@ -1449,23 +1449,48 @@ Function UninstallLegacyV2FreeInstall
     !endif
   ${EndIf}
 
-  DetailPrint "Force removing legacy directory: $R0"
-  RMDir /r /REBOOTOK "$R0"
+  !insertmacro RemoveVergeService
+
+  ${If} ${FileExists} "$R0\uninstall.exe"
+    DetailPrint "Running legacy uninstaller (silent full): $R0"
+    ; Full uninstall (/S), not /UPDATE — paths must be quoted for spaces
+    ExecWait '"$R0\uninstall.exe" /S _?="$R0"' $R3
+    ${If} $R3 <> 0
+      DetailPrint "Legacy uninstaller exit code: $R3"
+    ${EndIf}
+  ${EndIf}
+
+  ${If} ${FileExists} "$R0\${MAINBINARYNAME}.exe"
+  ${OrIf} ${FileExists} "$R0\uninstall.exe"
+  ${OrIf} ${FileExists} "$R0\Clash Verge.exe"
+    DetailPrint "Force removing leftover legacy directory: $R0"
+    RMDir /r /REBOOTOK "$R0"
+  ${EndIf}
 
   DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}"
   DeleteRegKey SHCTX "Software\v2free\${LEGACY_DIR_V2FREE}"
 
-  legacy_done:
+  run_legacy_done:
   Pop $R3
-  Pop $R2
   Pop $R1
+  Pop $R0
+FunctionEnd
+
+; Uninstall legacy fork folder so installs use Program Files\Clash Verge
+Function UninstallLegacyV2FreeInstall
+  Call ResolveLegacyV2FreeInstDir
+  Pop $R0
+  ${If} $R0 == ""
+    Return
+  ${EndIf}
+  Push $R0
+  Call RunLegacyV2FreeUninstaller
   Pop $R0
 FunctionEnd
 
 ; After install to unified path, delete any remaining legacy fork folder
 Function PurgeLeftoverLegacyV2FreeDirectory
   Push $R0
-  Push $R1
 
   Call ResolveLegacyV2FreeInstDir
   Pop $R0
@@ -1483,19 +1508,51 @@ Function PurgeLeftoverLegacyV2FreeDirectory
     Goto purge_done
   ${EndIf}
 
-  ${IfNot} ${FileExists} "$R0\${MAINBINARYNAME}.exe"
-    Goto purge_reg
-  ${EndIf}
-
-  DetailPrint "Purging leftover legacy directory: $R0"
-  !insertmacro CheckAllVergeProcesses
-  RMDir /r /REBOOTOK "$R0"
-
-  purge_reg:
-  DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}"
-  DeleteRegKey SHCTX "Software\v2free\${LEGACY_DIR_V2FREE}"
+  Push $R0
+  Call RunLegacyV2FreeUninstaller
+  Pop $R0
 
   purge_done:
+  Pop $R0
+FunctionEnd
+
+!macro RepairOneShortcutIfLegacy SHORTCUT LEGACYEXE
+  !insertmacro IsShortcutTarget "${SHORTCUT}" "${LEGACYEXE}"
+  Pop $0
+  ${If} $0 = 1
+    !insertmacro SetShortcutTarget "${SHORTCUT}" "$INSTDIR\${MAINBINARYNAME}.exe"
+    !insertmacro SetLnkAppUserModelId "${SHORTCUT}"
+  ${EndIf}
+!macroend
+
+; Point shortcuts still targeting the legacy install folder at $INSTDIR
+Function RepairLegacyV2FreeShortcuts
+  Push $R0
+  Push $R1
+
+  ${If} $INSTDIR == "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}"
+    Goto repair_done
+  ${EndIf}
+  ${If} $INSTDIR == "$PROGRAMFILES\${LEGACY_DIR_V2FREE}"
+    Goto repair_done
+  ${EndIf}
+
+  !insertmacro RepairOneShortcutIfLegacy "$DESKTOP\${PRODUCTNAME}.lnk" "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$DESKTOP\${PRODUCTNAME}.lnk" "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$DESKTOP\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$DESKTOP\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
+
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
+
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$PROGRAMFILES64\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\${MAINBINARYNAME}.exe"
+  !insertmacro RepairOneShortcutIfLegacy "$SMPROGRAMS\$AppStartMenuFolder\${PRODUCTNAME}.lnk" "$PROGRAMFILES\${LEGACY_DIR_V2FREE}\Clash Verge.exe"
+
+  repair_done:
   Pop $R1
   Pop $R0
 FunctionEnd
