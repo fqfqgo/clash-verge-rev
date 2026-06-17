@@ -18,3 +18,4 @@ CLAUDE.md
 .vfox/
 .claude
 AGENTS.md
+.cursor/rules/no-v2free-in-metadata.mdc

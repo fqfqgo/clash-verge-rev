@@ -228,6 +228,9 @@ pub fn run() {
         return;
     }
 
+    #[cfg(target_os = "macos")]
+    utils::macos::legacy_app::remove_legacy_bundle_if_needed();
+
     #[cfg(target_os = "linux")]
     utils::linux::workarounds::apply_nvidia_dmabuf_renderer_workaround();
     #[cfg(target_os = "linux")]
