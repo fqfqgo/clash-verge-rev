@@ -236,9 +236,6 @@ jobs:
           - 64位: x64_fixed_webview2-setup.exe
           - arm64架构: arm64_fixed_webview2-setup.exe
 
-          ### FAQ
-          - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)
-
           Created at ${{ env.BUILDTIME }}.
           EOF
 
