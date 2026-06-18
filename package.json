@@ -1,6 +1,6 @@
 {
   "name": "clash-verge",
-  "version": "2.5.13",
+  "version": "2.5.14",
   "license": "GPL-3.0-only",
   "scripts": {
     "prepare": "husky || true",
@@ -15,6 +15,7 @@
     "web:build": "tsc --noEmit && vite build",
     "web:serve": "vite preview",
     "prebuild": "node scripts/prebuild.mjs",
+    "check:mihomo-plugin": "node scripts/check-mihomo-plugin.mjs",
     "updater": "node scripts/updater.mjs",
     "updater-fixed-webview2": "node scripts/updater-fixed-webview2.mjs",
     "portable": "node scripts/portable.mjs",

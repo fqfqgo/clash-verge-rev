@@ -170,8 +170,8 @@ fn try_rmdir(command: &mut StdCommand) -> Result<bool> {
 
 #[cfg(windows)]
 fn cleanup_legacy_registry() {
-    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     use winreg::RegKey;
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
 
     let paths = [
         r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Clash Verge for v2free",

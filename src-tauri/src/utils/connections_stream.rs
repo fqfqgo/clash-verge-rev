@@ -1,9 +1,8 @@
 use crate::{Type, core::handle, logging};
 use anyhow::Result;
 use serde::Deserialize;
-use serde_json::Value;
 use std::time::Duration;
-use tauri_plugin_mihomo::models::{ConnectionId, WebSocketMessage};
+use tauri_plugin_mihomo::models::ConnectionId;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -31,17 +30,12 @@ pub enum StreamConsumeState<T> {
     ExitRequested,
 }
 
-enum InternalWsEvent<T> {
-    Data(T),
-    Closed,
-}
-
 /// Mihomo WebSocket 订阅句柄（通用事件流）。
 pub struct MihomoWsEventStream<T> {
     /// 当前订阅连接 ID，用于主动断开。
     pub connection_id: ConnectionId,
     /// 当前订阅消息接收器。
-    receiver: mpsc::Receiver<InternalWsEvent<T>>,
+    receiver: mpsc::Receiver<T>,
     /// 最近一次收到有效事件的时间戳。
     last_valid_event_at: Instant,
 }
@@ -52,32 +46,16 @@ struct TrafficPayload {
     down: u64,
 }
 
-fn parse_traffic_event(data: Value) -> Option<InternalWsEvent<TrafficSpeedEvent>> {
-    if let Ok(payload) = serde_json::from_value::<TrafficPayload>(data.clone()) {
-        return Some(InternalWsEvent::Data(TrafficSpeedEvent {
-            up: payload.up,
-            down: payload.down,
-        }));
-    }
-
-    if let Ok(ws_message) = WebSocketMessage::deserialize(&data) {
-        match ws_message {
-            WebSocketMessage::Text(text) => {
-                let payload = serde_json::from_str::<TrafficPayload>(&text).ok()?;
-                Some(InternalWsEvent::Data(TrafficSpeedEvent {
-                    up: payload.up,
-                    down: payload.down,
-                }))
-            }
-            WebSocketMessage::Close(_) => Some(InternalWsEvent::Closed),
-            _ => None,
-        }
-    } else {
-        None
-    }
+fn parse_traffic_event(data: &[u8]) -> Option<TrafficSpeedEvent> {
+    // 新版插件回调直接返回 WebSocket 文本帧的原始字节（/traffic 为 JSON 文本）。
+    let payload = serde_json::from_slice::<TrafficPayload>(data).ok()?;
+    Some(TrafficSpeedEvent {
+        up: payload.up,
+        down: payload.down,
+    })
 }
 
-fn try_send_internal_event<T>(message_tx: &mpsc::Sender<InternalWsEvent<T>>, event: InternalWsEvent<T>) {
+fn try_send_event<T>(message_tx: &mpsc::Sender<T>, event: T) {
     if let Err(err) = message_tx.try_send(event) {
         match err {
             // 队列满时丢弃本次事件，下一次事件会继续覆盖更新。
@@ -91,15 +69,15 @@ fn try_send_internal_event<T>(message_tx: &mpsc::Sender<InternalWsEvent<T>>, eve
 /// 建立 `/traffic` WebSocket 订阅（通用流）。
 pub async fn connect_traffic_stream() -> Result<MihomoWsEventStream<TrafficSpeedEvent>> {
     // 使用有界 mpsc 通道承接回调事件，限制消息积压上限。
-    let (message_tx, message_rx) = mpsc::channel::<InternalWsEvent<TrafficSpeedEvent>>(MIHOMO_WS_STREAM_BUFFER_SIZE);
+    let (message_tx, message_rx) = mpsc::channel::<TrafficSpeedEvent>(MIHOMO_WS_STREAM_BUFFER_SIZE);
     // 建立 Mihomo `/traffic` WebSocket 订阅。
     let connection_id = handle::Handle::mihomo()
         .await
         .ws_traffic({
             let message_tx = message_tx.clone();
             move |message| {
-                if let Some(event) = parse_traffic_event(message) {
-                    try_send_internal_event(&message_tx, event);
+                if let Some(event) = parse_traffic_event(&message) {
+                    try_send_event(&message_tx, event);
                 }
             }
         })
@@ -139,12 +117,12 @@ impl<T> MihomoWsEventStream<T> {
             tokio::select! {
                 maybe_event = self.receiver.recv() => {
                     match maybe_event {
-                        Some(InternalWsEvent::Data(event)) => {
+                        Some(event) => {
                             self.last_valid_event_at = Instant::now();
                             sleep.as_mut().reset(self.last_valid_event_at + stale_timeout);
                             return StreamConsumeState::Event(event);
                         }
-                        Some(InternalWsEvent::Closed) | None => return StreamConsumeState::Closed,
+                        None => return StreamConsumeState::Closed,
                     }
                 }
                 _ = &mut sleep => {

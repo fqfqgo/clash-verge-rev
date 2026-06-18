@@ -13,11 +13,7 @@ const MAIN_BINARY: &str = "clash-verge";
 /// Remove the legacy fork `.app` when running from the unified bundle name.
 pub fn remove_legacy_bundle_if_needed() {
     if let Err(err) = try_remove_legacy_bundle() {
-        logging!(
-            warn,
-            Type::Setup,
-            "Legacy macOS app bundle cleanup skipped: {err}"
-        );
+        logging!(warn, Type::Setup, "Legacy macOS app bundle cleanup skipped: {err}");
     }
 }
 

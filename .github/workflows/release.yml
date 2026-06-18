@@ -28,6 +28,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Ensure mihomo plugin tracks upstream (not frozen)
+        run: node scripts/check-mihomo-plugin.mjs
+
       - name: Check if tag is from dev branch
         run: |
           TAG_REF="${GITHUB_REF##*/}"

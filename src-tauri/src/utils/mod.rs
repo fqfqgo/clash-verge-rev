@@ -12,8 +12,6 @@ pub mod notification;
 pub mod resolve;
 #[cfg(target_os = "windows")]
 pub mod schtasks;
-#[cfg(target_os = "windows")]
-pub mod windows;
 pub mod server;
 pub mod singleton;
 pub mod speed;
@@ -21,3 +19,5 @@ pub mod tmpl;
 #[cfg(target_os = "macos")]
 pub mod tray_speed;
 pub mod window_manager;
+#[cfg(target_os = "windows")]
+pub mod windows;

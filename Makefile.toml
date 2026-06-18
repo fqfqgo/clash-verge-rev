@@ -16,6 +16,11 @@ description = "Run cargo clippy to lint the code"
 command = "cargo"
 args = ["clippy", "--all-targets", "--all-features", "--", "-D", "warnings"]
 
+[tasks.check-mihomo-plugin]
+description = "Ensure tauri-plugin-mihomo tracks upstream (not frozen)"
+command = "node"
+args = ["scripts/check-mihomo-plugin.mjs"]
+
 # --- Frontend ---
 
 [tasks.typecheck]
@@ -70,4 +75,4 @@ dependencies = ["rust-format", "frontend-format"]
 
 [tasks.pre-push]
 description = "Pre-push checks: lint and typecheck"
-dependencies = ["rust-clippy", "typecheck"]
+dependencies = ["check-mihomo-plugin", "rust-clippy", "typecheck"]
