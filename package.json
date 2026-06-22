@@ -1,6 +1,6 @@
 {
   "name": "clash-verge",
-  "version": "2.5.15",
+  "version": "2.5.16",
   "license": "GPL-3.0-only",
   "scripts": {
     "prepare": "husky || true",
@@ -76,7 +76,7 @@
     "react-markdown": "10.1.0",
     "react-router": "^7.13.1",
     "rehype-raw": "^7.0.0",
-    "tauri-plugin-mihomo-api": "github:clash-verge-rev/tauri-plugin-mihomo",
+    "tauri-plugin-mihomo-api": "github:clash-verge-rev/tauri-plugin-mihomo#a185fe1a8802367d0b3d50d402cb823759d2c57e",
     "types-pac": "^1.0.3",
     "validator": "^13.15.26"
   },

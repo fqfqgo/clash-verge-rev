@@ -1,10 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-// 约束：mihomo 通信插件必须跟随上游默认分支，不得单独冻结。
-// 原因：内核 verge-mihomo 在 prebuild.mjs 中按 releases/latest 构建时拉取（不锁版本）。
-// 若插件被钉死在旧 branch/rev/tag，新内核与旧插件通信协议错配，会导致代理页空白。
-// 插件（Rust + 前端 API）须与内核成套升级。
+// 约束：mihomo 通信插件的「Rust 端」与「前端 JS 端」都必须钉死 commit（可复现构建）。
+// 两半各自配套不同的对象，commit 允许不同：
+//   - Rust 端（Cargo.toml rev）做内核响应的反序列化，须与「浮动版」内核的数据格式兼容；
+//     历史上某版只接受大写配置枚举（INFO/Strict），而内核返回小写（info/strict），
+//     导致首页 "Core communication error"、Clash Info 空白、代理/规则页空白。
+//   - 前端端（package.json #commit）只是 invoke 包装 + TS 类型，须与本仓前端代码配套。
+// 升级任一半都要分别验证：Rust 端验通信、前端端验 typecheck/页面，确认后再钉死。
 
 const cwd = process.cwd()
 const errors = []
@@ -17,33 +20,35 @@ const rustLine = cargoToml
   .split('\n')
   .find((line) => line.trimStart().startsWith('tauri-plugin-mihomo ='))
 
+const rustRev = rustLine?.match(/\brev\s*=\s*"([0-9a-f]{7,40})"/)?.[1]
+
 if (!rustLine) {
   errors.push('src-tauri/Cargo.toml: 未找到 tauri-plugin-mihomo 依赖')
-} else if (/\b(branch|rev|tag)\s*=/.test(rustLine)) {
-  errors.push(`src-tauri/Cargo.toml 插件被钉死：\n      ${rustLine.trim()}`)
+} else if (!rustRev) {
+  errors.push(
+    `src-tauri/Cargo.toml: tauri-plugin-mihomo 未钉 rev：\n      ${rustLine.trim()}`,
+  )
 }
 
 const pkg = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf-8'))
 const jsSpec = pkg.dependencies?.['tauri-plugin-mihomo-api']
+const jsRev = jsSpec?.match(/#([0-9a-f]{7,40})$/)?.[1]
 
 if (!jsSpec) {
   errors.push('package.json: 未找到 tauri-plugin-mihomo-api 依赖')
-} else if (jsSpec.includes('#')) {
+} else if (!jsRev) {
   errors.push(
-    `package.json 前端插件被钉死：\n      "tauri-plugin-mihomo-api": "${jsSpec}"`,
+    `package.json: tauri-plugin-mihomo-api 未钉 #commit：\n      "tauri-plugin-mihomo-api": "${jsSpec}"`,
   )
 }
 
 if (errors.length) {
-  console.error('❌ mihomo 插件被单独冻结，违反「内核 + 插件成套升级」约束：\n')
+  console.error('❌ mihomo 插件未钉死 commit（须可复现构建）：\n')
   for (const e of errors) console.error('  - ' + e)
   console.error(
-    '\n内核 verge-mihomo 构建时拉取 releases/latest（不锁版本），插件钉死在旧 ref 会与新内核通信错配，导致代理页空白。',
-  )
-  console.error(
-    '请去掉 branch/rev/tag 与 #ref，让插件跟随默认分支、与内核成套升级。',
+    '\nRust 端（Cargo.toml rev）与前端端（package.json #commit）都必须钉死 commit；升级任一半须分别验证后再钉。',
   )
   process.exit(1)
 }
 
-console.log('✅ mihomo 插件跟随上游默认分支，未被单独冻结')
+console.log(`✅ mihomo 插件两半均已钉死：Rust rev=${rustRev}，前端 #${jsRev}`)
