@@ -74,7 +74,7 @@ jobs:
 
       - name: Install Rust Stable
         if: github.event.inputs[matrix.input] == 'true'
-        uses: dtolnay/rust-toolchain@1.91.0
+        uses: dtolnay/rust-toolchain@1.100.0
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
