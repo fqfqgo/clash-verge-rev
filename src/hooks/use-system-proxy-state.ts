@@ -28,7 +28,7 @@ export const useSystemProxyState = () => {
 
   // OS 实际状态：enable + 地址匹配本应用
   const indicator = (() => {
-    const host = proxy_host || '127.0.0.1'
+    const host = (proxy_host || '127.0.0.1').trim().replace(/^https?:\/\//i, '')
     if (proxy_auto_config) {
       if (!autoproxy?.enable) return false
       const pacPort = import.meta.env.DEV ? 11233 : 33331

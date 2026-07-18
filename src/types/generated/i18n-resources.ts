@@ -1200,9 +1200,6 @@ export interface TranslationResources {
             silentStart: string
           }
           notifications: {
-            systemProxy: {
-              verificationFailed: string
-            }
             tunMode: {
               autoDisabled: string
               autoDisableFailed: string

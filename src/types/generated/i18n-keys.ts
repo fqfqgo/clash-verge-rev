@@ -335,7 +335,6 @@ export const translationKeys = [
   'settings.sections.system.fields.silentStart',
   'settings.sections.system.notifications.tunMode.autoDisabled',
   'settings.sections.system.notifications.tunMode.autoDisableFailed',
-  'settings.sections.system.notifications.systemProxy.verificationFailed',
   'settings.sections.proxyControl.tooltips.systemProxy',
   'settings.sections.proxyControl.tooltips.tunMode',
   'settings.sections.proxyControl.tooltips.tunUnavailable',

@@ -191,6 +191,7 @@ pub(super) async fn init_core_manager() {
 
 pub(super) async fn init_system_proxy() {
     logging_error!(Type::Setup, sysopt::Sysopt::global().update_sysproxy().await);
+    logging_error!(Type::Setup, feat::ensure_system_proxy_or_fallback().await);
 }
 
 pub(super) async fn init_system_proxy_guard() {

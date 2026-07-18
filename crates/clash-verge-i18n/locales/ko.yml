@@ -1,4 +1,11 @@
 _version: 1
+systemProxy:
+  fallbackTun:
+    title: System Proxy Failed
+    body: The system proxy could not be enabled, so virtual NIC (TUN) mode has been turned on automatically.
+  verificationError:
+    title: Cannot Read System Proxy Status
+    body: Unable to read the actual system proxy status. If the network does not work properly, the system proxy may not have been set successfully; try virtual NIC (TUN) mode instead.
 notifications:
   dashboardToggled:
     title: 대시보드

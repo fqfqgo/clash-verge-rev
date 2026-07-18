@@ -33,7 +33,7 @@ pub async fn toggle_system_proxy() -> bool {
     match patch_result {
         Ok(_) => {
             handle::Handle::refresh_verge();
-            requested
+            Config::verge().await.latest_arc().enable_system_proxy.unwrap_or(false)
         }
         Err(err) => {
             logging!(error, Type::ProxyMode, "{err}");

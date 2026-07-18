@@ -25,9 +25,6 @@
         "tunMode": {
           "autoDisabled": "由於服務不可使用，虛擬網路介面卡模式已自動停用",
           "autoDisableFailed": "自動停用虛擬網路介面卡模式失敗"
-        },
-        "systemProxy": {
-          "verificationFailed": "Unable to read the system proxy status. If the network does not work normally, the system proxy may not have been set successfully. Try virtual NIC mode instead."
         }
       }
     },

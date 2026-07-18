@@ -1,4 +1,11 @@
 _version: 1
+systemProxy:
+  fallbackTun:
+    title: 系统代理开启失败
+    body: 由于系统代理开启失败，已自动切换到虚拟网卡（TUN）模式。
+  verificationError:
+    title: 无法读取系统代理状态
+    body: 无法读取系统代理的真实状态。若网络无法正常使用，可能是系统代理未设置成功，建议改用虚拟网卡（TUN）模式。
 notifications:
   dashboardToggled:
     title: 仪表板

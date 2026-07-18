@@ -25,9 +25,6 @@
         "tunMode": {
           "autoDisabled": "حالت TUN به دلیل عدم دسترسی به سرویس، به طور خودکار غیرفعال می‌شود",
           "autoDisableFailed": "غیرفعال کردن خودکار حالت TUN ناموفق بود"
-        },
-        "systemProxy": {
-          "verificationFailed": "Unable to read the system proxy status. If the network does not work normally, the system proxy may not have been set successfully. Try virtual NIC mode instead."
         }
       }
     },

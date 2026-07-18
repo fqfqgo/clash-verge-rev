@@ -1,4 +1,11 @@
 _version: 1
+systemProxy:
+  fallbackTun:
+    title: システムプロキシの有効化に失敗
+    body: システムプロキシを有効にできなかったため、自動的に仮想NIC（TUN）モードに切り替えました。
+  verificationError:
+    title: システムプロキシの状態を取得できません
+    body: システムプロキシの実際の状態を取得できませんでした。ネットワークが正常に動作しない場合、システムプロキシの設定に失敗している可能性があります。仮想NIC（TUN）モードの使用をお勧めします。
 notifications:
   dashboardToggled:
     title: ダッシュボード

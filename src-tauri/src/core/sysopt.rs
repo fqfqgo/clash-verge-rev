@@ -141,12 +141,22 @@ impl Sysopt {
             None => Config::clash().await.latest_arc().get_mixed_port(),
         };
         let pac_port = IVerge::get_singleton_port();
-        let (sys_enable, pac_enable, proxy_host, proxy_guard) = (
+        let (sys_enable, pac_enable, proxy_guard) = (
             verge.enable_system_proxy.unwrap_or_default(),
             verge.proxy_auto_config.unwrap_or_default(),
-            verge.proxy_host.clone().unwrap_or_else(|| String::from("127.0.0.1")),
             verge.enable_proxy_guard.unwrap_or_default(),
         );
+        // Windows LAN dialog splits host/port on the last ':'; a scheme prefix
+        // like `http://127.0.0.1` becomes an invalid proxy host.
+        let proxy_host = {
+            let raw = verge.proxy_host.clone().unwrap_or_else(|| String::from("127.0.0.1"));
+            let trimmed = raw.trim().trim_start_matches("http://").trim_start_matches("https://");
+            if trimmed.is_empty() {
+                String::from("127.0.0.1")
+            } else {
+                String::from(trimmed)
+            }
+        };
         // 先 await, 避免持有锁导致的 Send 问题
         let bypass = get_bypass().await;
 

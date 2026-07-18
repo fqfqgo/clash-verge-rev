@@ -13,6 +13,7 @@ use bitflags::bitflags;
 use clash_verge_draft::SharedDraft;
 use clash_verge_logging::{Type, logging, logging_error};
 use serde_yaml_ng::Mapping;
+use std::fmt;
 use tauri_plugin_clash_verge_sysinfo::is_current_app_handle_admin;
 
 /// Patch Clash configuration
@@ -230,7 +231,10 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         clash_verge_i18n::set_locale(language.as_str());
     }
     if update_flags.contains(UpdateFlags::SYS_PROXY) {
-        sysopt::Sysopt::global().update_sysproxy().await?;
+        sysopt::Sysopt::global()
+            .update_sysproxy()
+            .await
+            .map_err(SystemProxyApplyError)?;
         sysopt::Sysopt::global().refresh_guard().await;
     }
     if update_flags.contains(UpdateFlags::HOTKEY)
@@ -274,6 +278,17 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
     Ok(())
 }
 
+#[derive(Debug)]
+struct SystemProxyApplyError(anyhow::Error);
+
+impl fmt::Display for SystemProxyApplyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Failed to apply system proxy: {}", self.0)
+    }
+}
+
+impl std::error::Error for SystemProxyApplyError {}
+
 async fn ensure_tun_available() -> Result<bool> {
     if is_current_app_handle_admin(handle::Handle::app_handle()) {
         return Ok(false);
@@ -293,7 +308,35 @@ async fn ensure_tun_available() -> Result<bool> {
     Ok(true)
 }
 
+async fn disable_system_proxy_for_fallback() -> Result<()> {
+    if Box::pin(patch_verge(
+        &IVerge {
+            enable_system_proxy: Some(false),
+            ..IVerge::default()
+        },
+        false,
+    ))
+    .await
+    .is_ok()
+    {
+        return Ok(());
+    }
+
+    // The OS may reject both enabling and clearing its proxy. Keep the saved
+    // state honest so service-install failures cannot leave a false "on".
+    let verge = Config::verge().await;
+    verge.edit_draft(|d| d.enable_system_proxy = Some(false));
+    verge.apply();
+    let verge = verge.latest_arc();
+    verge.save_file().await?;
+    handle::Handle::refresh_verge();
+    sysopt::Sysopt::global().refresh_guard().await;
+    tray::Tray::global().update_menu_and_icon().await;
+    Ok(())
+}
+
 async fn enable_tun_fallback() -> Result<()> {
+    disable_system_proxy_for_fallback().await?;
     Box::pin(patch_verge(
         &IVerge {
             enable_tun_mode: Some(true),
@@ -301,7 +344,53 @@ async fn enable_tun_fallback() -> Result<()> {
         },
         false,
     ))
-    .await
+    .await?;
+    show_system_proxy_dialog(
+        clash_verge_i18n::t!("systemProxy.fallbackTun.title").into_owned(),
+        clash_verge_i18n::t!("systemProxy.fallbackTun.body").into_owned(),
+    );
+    Ok(())
+}
+
+/// Native modal dialog for system-proxy problems. Works even at startup with no
+/// window shown, so both manual and auto (startup restore) paths are unified.
+fn show_system_proxy_dialog(title: String, body: String) {
+    use tauri_plugin_dialog::{DialogExt as _, MessageDialogKind};
+    handle::Handle::app_handle()
+        .dialog()
+        .message(body)
+        .title(title)
+        .kind(MessageDialogKind::Warning)
+        .show(|_| {});
+}
+
+pub async fn ensure_system_proxy_or_fallback() -> Result<()> {
+    if !Config::verge().await.latest_arc().enable_system_proxy.unwrap_or(false) {
+        return Ok(());
+    }
+
+    // WinINET → registry sync can lag briefly after InternetSetOptionW.
+    for _ in 0..3 {
+        match sysopt::Sysopt::global().is_system_proxy_applied().await {
+            Ok(true) => return Ok(()),
+            Ok(false) => tokio::time::sleep(std::time::Duration::from_millis(200)).await,
+            Err(err) => {
+                logging!(warn, Type::ProxyMode, "Unable to verify system proxy: {err}");
+                show_system_proxy_dialog(
+                    clash_verge_i18n::t!("systemProxy.verificationError.title").into_owned(),
+                    clash_verge_i18n::t!("systemProxy.verificationError.body").into_owned(),
+                );
+                return Ok(());
+            }
+        }
+    }
+
+    logging!(
+        warn,
+        Type::ProxyMode,
+        "System proxy was not applied; enabling TUN fallback"
+    );
+    enable_tun_fallback().await
 }
 
 pub async fn patch_verge(patch: &IVerge, not_save_file: bool) -> Result<()> {
@@ -314,13 +403,18 @@ pub async fn patch_verge(patch: &IVerge, not_save_file: bool) -> Result<()> {
 
     let update_flags = determine_update_flags(patch);
     logging!(debug, Type::Setup, "Determined update flags: {:?}", update_flags);
-    let process_flag_result: std::result::Result<(), anyhow::Error> = {
-        process_terminated_flags(update_flags, patch).await?;
-        Ok(())
-    };
+    let process_flag_result = process_terminated_flags(update_flags, patch).await;
 
     if let Err(err) = process_flag_result {
         Config::verge().await.discard();
+        if patch.enable_system_proxy == Some(true) && err.downcast_ref::<SystemProxyApplyError>().is_some() {
+            logging!(
+                warn,
+                Type::ProxyMode,
+                "Failed to apply system proxy; enabling TUN fallback: {err}"
+            );
+            return enable_tun_fallback().await;
+        }
         return Err(err);
     }
     Config::verge().await.apply();
@@ -336,21 +430,7 @@ pub async fn patch_verge(patch: &IVerge, not_save_file: bool) -> Result<()> {
     }
 
     if patch.enable_system_proxy == Some(true) {
-        match sysopt::Sysopt::global().is_system_proxy_applied().await {
-            Ok(true) => {}
-            Ok(false) => {
-                logging!(
-                    warn,
-                    Type::ProxyMode,
-                    "System proxy was not applied; enabling TUN fallback"
-                );
-                enable_tun_fallback().await?;
-            }
-            Err(err) => {
-                logging!(warn, Type::ProxyMode, "Unable to verify system proxy: {err}");
-                handle::Handle::notice_message("system_proxy::verification_error", "");
-            }
-        }
+        ensure_system_proxy_or_fallback().await?;
     }
 
     Ok(())
