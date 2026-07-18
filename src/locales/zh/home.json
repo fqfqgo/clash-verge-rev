@@ -32,7 +32,7 @@
       "status": {
         "systemProxyEnabled": "系统代理已启用，您的应用将通过代理访问网络",
         "systemProxyDisabled": "系统代理已关闭，建议大多数用户打开此选项",
-        "tunModeServiceRequired": "TUN 模式需要服务模式，请先安装服务",
+        "tunModeServiceRequired": "首次启动 TUN 模式时，将自动安装服务。",
         "tunModeEnabled": "TUN 模式已启用，应用将通过虚拟网卡访问网络",
         "tunModeDisabled": "TUN 模式已关闭，适用于特殊应用"
       },
