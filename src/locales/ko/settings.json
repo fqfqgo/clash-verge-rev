@@ -25,6 +25,9 @@
         "tunMode": {
           "autoDisabled": "서비스를 사용할 수 없어 TUN 모드가 자동으로 비활성화되었습니다",
           "autoDisableFailed": "TUN 모드를 자동으로 비활성화하지 못했습니다"
+        },
+        "systemProxy": {
+          "verificationFailed": "Unable to read the system proxy status. If the network does not work normally, the system proxy may not have been set successfully. Try virtual NIC mode instead."
         }
       }
     },

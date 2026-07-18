@@ -36,6 +36,11 @@ export const handleNoticeMessage = (
       ),
     'reactivate_profiles::error': () => showNotice.error(msg),
     update_failed: () => showNotice.error(msg),
+    'system_proxy::verification_error': () =>
+      showNotice.info(
+        'settings.sections.system.notifications.systemProxy.verificationFailed',
+        10000,
+      ),
     'config_validate::boot_error': () =>
       showNotice.error('shared.feedback.validation.config.bootFailed', msg),
     'config_validate::core_change': () =>

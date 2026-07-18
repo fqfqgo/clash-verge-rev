@@ -1,5 +1,4 @@
 use crate::config::{IProfilePreview, IVerge};
-use crate::core::service;
 use crate::core::tray::menu_def::TrayAction;
 use crate::module::lightweight;
 use crate::process::AsyncHandler;
@@ -12,7 +11,6 @@ use crate::{
 use clash_verge_limiter::{Limiter, SystemClock, SystemLimiter};
 use clash_verge_logging::logging_error;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri_plugin_clash_verge_sysinfo::is_current_app_handle_admin;
 use tauri_plugin_mihomo::models::Proxies;
 use tokio::fs;
 
@@ -194,8 +192,6 @@ impl Tray {
         let verge = Config::verge().await.latest_arc();
         let system_proxy = verge.enable_system_proxy.as_ref().unwrap_or(&false);
         let tun_mode = verge.enable_tun_mode.as_ref().unwrap_or(&false);
-        let tun_mode_available =
-            is_current_app_handle_admin(app_handle) || service::is_service_available().await.is_ok();
         let mode = {
             Config::clash()
                 .await
@@ -219,7 +215,6 @@ impl Tray {
                     Some(mode.as_str()),
                     *system_proxy,
                     *tun_mode,
-                    tun_mode_available,
                     profiles_preview,
                     is_lightweight_mode,
                 )
@@ -580,7 +575,6 @@ async fn create_tray_menu(
     mode: Option<&str>,
     system_proxy_enabled: bool,
     tun_mode_enabled: bool,
-    tun_mode_available: bool,
     profiles_preview: Vec<IProfilePreview<'_>>,
     is_lightweight_mode: bool,
 ) -> Result<tauri::menu::Menu<Wry>> {
@@ -737,7 +731,7 @@ async fn create_tray_menu(
         app_handle,
         MenuIds::TUN_MODE,
         &texts.tun_mode,
-        tun_mode_available,
+        true,
         tun_mode_enabled,
         hotkeys.get("toggle_tun_mode").map(|s| s.as_str()),
     )?;

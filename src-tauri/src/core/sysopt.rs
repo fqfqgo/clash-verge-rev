@@ -202,6 +202,25 @@ impl Sysopt {
         Ok(())
     }
 
+    /// Verify that the OS accepted the most recently requested proxy settings.
+    pub async fn is_system_proxy_applied(&self) -> Result<bool> {
+        self.wait_idle().await;
+
+        let (sys, auto) = self.inner_proxy.read().clone();
+        tokio::task::spawn_blocking(move || {
+            if sys.enable {
+                let current = Sysproxy::get_system_proxy()?;
+                Ok(current.enable && current.host == sys.host && current.port == sys.port)
+            } else if auto.enable {
+                let current = Autoproxy::get_auto_proxy()?;
+                Ok(current.enable && current.url == auto.url)
+            } else {
+                Ok(true)
+            }
+        })
+        .await?
+    }
+
     /// reset the sysproxy
     pub async fn reset_sysproxy(&self) -> Result<()> {
         if self

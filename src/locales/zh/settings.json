@@ -25,6 +25,9 @@
         "tunMode": {
           "autoDisabled": "由于服务不可用，TUN 模式已自动关闭",
           "autoDisableFailed": "自动关闭 TUN 模式失败"
+        },
+        "systemProxy": {
+          "verificationFailed": "无法读取系统代理状态。若网络无法正常使用，可能是系统代理设置未成功，建议改用虚拟网卡模式。"
         }
       }
     },

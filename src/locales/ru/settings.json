@@ -25,6 +25,9 @@
         "tunMode": {
           "autoDisabled": "Режим TUN автоматически отключен: служба недоступна",
           "autoDisableFailed": "Не удалось автоматически отключить режим TUN"
+        },
+        "systemProxy": {
+          "verificationFailed": "Unable to read the system proxy status. If the network does not work normally, the system proxy may not have been set successfully. Try virtual NIC mode instead."
         }
       }
     },

@@ -1,6 +1,11 @@
 use crate::{
     config::{Config, IVerge},
-    core::{CoreManager, autostart, handle, hotkey, logger::Logger, sysopt, tray},
+    core::{
+        CoreManager, autostart, handle, hotkey,
+        logger::Logger,
+        service::{self, SERVICE_MANAGER, ServiceStatus},
+        sysopt, tray,
+    },
     module::{auto_backup::AutoBackupManager, lightweight},
 };
 use anyhow::Result;
@@ -8,6 +13,7 @@ use bitflags::bitflags;
 use clash_verge_draft::SharedDraft;
 use clash_verge_logging::{Type, logging, logging_error};
 use serde_yaml_ng::Mapping;
+use tauri_plugin_clash_verge_sysinfo::is_current_app_handle_admin;
 
 /// Patch Clash configuration
 pub async fn patch_clash(patch: &Mapping) -> Result<()> {
@@ -268,7 +274,42 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
     Ok(())
 }
 
+async fn ensure_tun_available() -> Result<bool> {
+    if is_current_app_handle_admin(handle::Handle::app_handle()) {
+        return Ok(false);
+    }
+    let mut service_manager = SERVICE_MANAGER.lock().await;
+    if service::is_service_available().await.is_ok() {
+        service_manager.init().await?;
+        service_manager.refresh().await?;
+        drop(service_manager);
+        return Ok(true);
+    }
+
+    service_manager
+        .handle_service_status(&ServiceStatus::InstallRequired)
+        .await?;
+    drop(service_manager);
+    Ok(true)
+}
+
+async fn enable_tun_fallback() -> Result<()> {
+    Box::pin(patch_verge(
+        &IVerge {
+            enable_tun_mode: Some(true),
+            ..IVerge::default()
+        },
+        false,
+    ))
+    .await
+}
+
 pub async fn patch_verge(patch: &IVerge, not_save_file: bool) -> Result<()> {
+    let service_installed_for_tun = if patch.enable_tun_mode == Some(true) {
+        ensure_tun_available().await?
+    } else {
+        false
+    };
     Config::verge().await.edit_draft(|d| d.patch_config(patch));
 
     let update_flags = determine_update_flags(patch);
@@ -290,6 +331,28 @@ pub async fn patch_verge(patch: &IVerge, not_save_file: bool) -> Result<()> {
         logging!(debug, Type::Setup, "Saving Verge configuration to file...");
         verge_data.save_file().await?;
     }
+    if service_installed_for_tun {
+        CoreManager::global().restart_core().await?;
+    }
+
+    if patch.enable_system_proxy == Some(true) {
+        match sysopt::Sysopt::global().is_system_proxy_applied().await {
+            Ok(true) => {}
+            Ok(false) => {
+                logging!(
+                    warn,
+                    Type::ProxyMode,
+                    "System proxy was not applied; enabling TUN fallback"
+                );
+                enable_tun_fallback().await?;
+            }
+            Err(err) => {
+                logging!(warn, Type::ProxyMode, "Unable to verify system proxy: {err}");
+                handle::Handle::notice_message("system_proxy::verification_error", "");
+            }
+        }
+    }
+
     Ok(())
 }
 
