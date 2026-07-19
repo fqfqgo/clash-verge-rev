@@ -151,7 +151,7 @@ i18n.use(initReactI18next).init({
   },
 })
 
-export const ensureLanguageSections = async (
+const ensureLanguageSections = async (
   sections: string | readonly string[],
   language: string = i18n.language || FALLBACK_LANGUAGE,
 ) => {
