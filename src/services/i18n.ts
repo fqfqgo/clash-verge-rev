@@ -89,6 +89,9 @@ const STARTUP_LANGUAGE_SECTIONS = [
   'profiles',
   'proxies',
   'tests',
+  'rules',
+  'connections',
+  'logs',
 ] as const
 
 const localeModules = import.meta.glob<LocaleModule>('@/locales/*/*.json')
@@ -174,7 +177,7 @@ export const changeLanguage = async (language: string) => {
   )
 
   await ensureLanguageSections(
-    loadedSections.length ? loadedSections : STARTUP_LANGUAGE_SECTIONS,
+    [...new Set([...loadedSections, ...STARTUP_LANGUAGE_SECTIONS])],
     targetLanguage,
   )
 
