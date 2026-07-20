@@ -295,8 +295,12 @@ async fn ensure_tun_available() -> Result<bool> {
     }
     let mut service_manager = SERVICE_MANAGER.lock().await;
     if service::is_service_available().await.is_ok() {
+        // Service is installed and reachable — use it as-is. Do NOT call
+        // refresh() here: a version mismatch would auto-trigger a reinstall
+        // (uninstall + install), popping a confusing "uninstall service" admin
+        // prompt when the user only enabled the system proxy / TUN. A real
+        // version upgrade is left to the explicit repair action in settings.
         service_manager.init().await?;
-        service_manager.refresh().await?;
         drop(service_manager);
         return Ok(true);
     }

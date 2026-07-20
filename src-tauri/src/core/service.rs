@@ -314,6 +314,7 @@ fn check_output_error(output: &std::process::Output) -> Option<(i32, Cow<'_, str
     Some((code, Cow::Borrowed("Unknown error")))
 }
 
+#[cfg(not(target_os = "macos"))]
 fn reinstall_service() -> Result<()> {
     logging!(info, Type::Service, "reinstall service");
 
@@ -329,6 +330,51 @@ fn reinstall_service() -> Result<()> {
             bail!(format!("failed to install service: {err}"))
         }
     }
+}
+
+/// macOS: run uninstall (best-effort) and install inside a single elevated
+/// `osascript` call, so the user enters the admin password once instead of
+/// twice (a separate uninstall then install would prompt two times).
+#[cfg(target_os = "macos")]
+fn reinstall_service() -> Result<()> {
+    logging!(info, Type::Service, "reinstall service");
+
+    let binary_path = dirs::service_path()?;
+    let install_path = binary_path.with_file_name("clash-verge-service-install");
+    if !install_path.exists() {
+        bail!(format!("installer not found: {install_path:?}"));
+    }
+    let uninstall_path = binary_path.with_file_name("clash-verge-service-uninstall");
+
+    let install_shell: String = install_path.to_string_lossy().into_owned();
+    let gid = tauri_plugin_clash_verge_sysinfo::current_gid();
+    let install_cmd = format!("sudo CLASH_VERGE_SERVICE_GID={gid} '{install_shell}'");
+
+    // Chain uninstall (ignore its failure) and install in one shell script that
+    // runs entirely as root under a single authorization.
+    let script = if uninstall_path.exists() {
+        let uninstall_shell: String = uninstall_path.to_string_lossy().into_owned();
+        format!("sudo '{uninstall_shell}' >/dev/null 2>&1 || true; {install_cmd}")
+    } else {
+        install_cmd
+    };
+
+    let prompt = clash_verge_i18n::t!("service.adminInstallPrompt");
+    let command = format!(r#"do shell script "{script}" with administrator privileges with prompt "{prompt}""#);
+
+    let output = StdCommand::new("osascript").args(vec!["-e", &command]).output()?;
+    if let Some((code, err)) = check_output_error(&output) {
+        logging!(
+            error,
+            Type::Service,
+            "failed to reinstall service code: {}, details: {}",
+            code,
+            err
+        );
+        bail!("failed to reinstall service code: {}, details: {}", code, err);
+    }
+
+    Ok(())
 }
 
 /// 强制重装服务（UI修复按钮）
