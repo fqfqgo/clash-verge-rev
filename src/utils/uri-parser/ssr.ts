@@ -2,17 +2,18 @@ import {
   decodeBase64OrOriginal,
   getCipher,
   getIfNotBlank,
+  normalizeHost,
   parseQueryString,
   parseRequiredPort,
   stripUriScheme,
 } from './helpers'
 
-export function URI_SSR(line: string): IProxyshadowsocksRConfig {
-  const afterScheme = stripUriScheme(line, 'ssr', 'Invalid ssr uri')
+export function URI_SSR(uri: string): IProxyshadowsocksRConfig {
+  const afterScheme = stripUriScheme(uri, 'ssr', 'Invalid ssr uri')
   if (!afterScheme) {
     throw new Error('Invalid ssr uri')
   }
-  line = decodeBase64OrOriginal(afterScheme)
+  const line = decodeBase64OrOriginal(afterScheme)
 
   // handle IPV6 & IPV4 format
   let splitIdx = line.indexOf(':origin')
@@ -27,7 +28,7 @@ export function URI_SSR(line: string): IProxyshadowsocksRConfig {
   if (portIdx === -1) {
     throw new Error('Invalid ssr uri: missing port')
   }
-  const server = serverAndPort.substring(0, portIdx)
+  const server = normalizeHost(serverAndPort.substring(0, portIdx))
   const port = parseRequiredPort(
     serverAndPort.substring(portIdx + 1),
     'Invalid ssr uri: invalid port',

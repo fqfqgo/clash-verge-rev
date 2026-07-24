@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use anyhow::Result;
 use percent_encoding::percent_decode_str;
 use smartstring::alias::String;
@@ -7,7 +5,7 @@ use tauri::Url;
 
 use crate::{
     config::{Config, PrfItem, profiles},
-    core::{CoreManager, handle},
+    core::{CoreManager, handle, timer::Timer},
     utils::help,
 };
 use clash_verge_logging::{Type, logging, logging_error};
@@ -99,8 +97,12 @@ async fn import_subscription(url: &str, name: Option<&String>) {
         return;
     }
 
-    Config::profiles().await.apply();
-    logging_error!(Type::Config, Config::profiles().await.data_arc().save_file().await);
+    if let Err(e) = Config::profiles().await.data_arc().save_file().await {
+        logging!(error, Type::Config, "failed to save imported subscription: {}", e);
+        handle::Handle::notice_message("import_sub_url::error", e.to_string());
+        return;
+    }
+    logging_error!(Type::Timer, Timer::global().refresh().await);
     handle::Handle::notice_message(
         "import_sub_url::ok",
         "", // 空 msg 传入，我们不希望导致 后端-前端-后端 死循环，这里只做提醒。
@@ -123,7 +125,6 @@ async fn fetch_profile_item(url: &str, name: Option<&String>) -> Option<PrfItem>
 async fn post_import_updates(uid: &String, had_current_profile: bool) {
     handle::Handle::refresh_verge();
     handle::Handle::notify_profile_changed(uid);
-    tokio::time::sleep(Duration::from_millis(100)).await;
 
     let should_update_core = if uid.is_empty() || had_current_profile {
         false
@@ -131,7 +132,6 @@ async fn post_import_updates(uid: &String, had_current_profile: bool) {
         let profiles = Config::profiles().await;
         profiles.latest_arc().is_current_profile_index(uid)
     };
-    handle::Handle::notify_profile_changed(uid);
 
     if should_update_core {
         refresh_core_config().await;

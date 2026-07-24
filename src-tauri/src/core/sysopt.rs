@@ -60,23 +60,16 @@ static DEFAULT_BYPASS: &str =
     "127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,localhost,*.local,*.crashlytics.com,<local>";
 
 async fn get_bypass() -> String {
-    let use_default = Config::verge().await.latest_arc().use_default_bypass.unwrap_or(true);
-    let res = {
-        let verge = Config::verge().await;
-        let verge = verge.latest_arc();
-        verge.system_proxy_bypass.clone()
-    };
-    let custom_bypass = match res {
-        Some(bypass) => bypass,
-        None => "".into(),
-    };
+    let verge = Config::verge().await.latest_arc();
+    let use_default = verge.use_default_bypass.unwrap_or(true);
+    let custom_bypass = verge.system_proxy_bypass.as_deref().unwrap_or("");
 
     if custom_bypass.is_empty() {
         DEFAULT_BYPASS.into()
     } else if use_default {
         format!("{DEFAULT_BYPASS},{custom_bypass}").into()
     } else {
-        custom_bypass
+        custom_bypass.into()
     }
 }
 
@@ -162,10 +155,10 @@ impl Sysopt {
 
         let (sys, auto, guard_type) = {
             let (sys, auto) = &mut *self.inner_proxy.write();
-            sys.host = proxy_host.clone().into();
+            auto.url = format!("http://{proxy_host}:{pac_port}/commands/pac");
+            sys.host = proxy_host.into();
             sys.port = port;
             sys.bypass = bypass.into();
-            auto.url = format!("http://{proxy_host}:{pac_port}/commands/pac");
 
             // `enable_system_proxy` is the master switch.
             // When disabled, force clear both global proxy and PAC at OS level.

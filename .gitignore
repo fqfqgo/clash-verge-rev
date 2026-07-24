@@ -15,7 +15,8 @@ scripts/_env.sh
 target
 CLAUDE.md
 .vfox.toml
-.vfox/
+.vfox
 .claude
 AGENTS.md
 .cursor/rules/no-v2free-in-metadata.mdc
+.zed

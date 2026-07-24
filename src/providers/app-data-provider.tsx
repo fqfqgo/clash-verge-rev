@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { listen } from '@tauri-apps/api/event'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
@@ -15,7 +14,7 @@ import {
   getRunningMode,
   getSystemProxy,
 } from '@/services/cmds'
-import { queryClient } from '@/services/query-client'
+import { revalidateQueries, useQuery } from '@/services/query-client'
 
 import {
   ClashConfigContext,
@@ -80,12 +79,14 @@ export const AppDataProvider = ({
     queryKey: ['getProxyProviders'],
     queryFn: calcuProxyProviders,
     ...TQ_MIHOMO,
+    revalidateOnMount: false,
   })
 
   const { data: ruleProviders, refetch: _refetchRuleProviders } = useQuery({
     queryKey: ['getRuleProviders'],
     queryFn: getRuleProviders,
     ...TQ_MIHOMO,
+    revalidateOnMount: false,
   })
 
   const { data: rulesData, refetch: _refetchRules } = useQuery({
@@ -123,7 +124,8 @@ export const AppDataProvider = ({
 
   useEffect(() => {
     let lastProfileId: string | null = null
-    let lastUpdateTime = 0
+    let lastProfileUpdateTime = 0
+    let lastProxyUpdateTime = 0
     const refreshThrottle = 800
     const cleanupFns: Array<() => void> = []
 
@@ -132,13 +134,13 @@ export const AppDataProvider = ({
       const now = Date.now()
       if (
         lastProfileId === newProfileId &&
-        now - lastUpdateTime < refreshThrottle
+        now - lastProfileUpdateTime < refreshThrottle
       ) {
         return
       }
       lastProfileId = newProfileId
-      lastUpdateTime = now
-      void queryClient.invalidateQueries({ queryKey: ['getProfiles'] })
+      lastProfileUpdateTime = now
+      void revalidateQueries([['getProfiles']])
       refreshProxy().catch(() => {})
       refreshProxyProviders().catch(() => {})
       refreshRules().catch(() => {})
@@ -147,9 +149,13 @@ export const AppDataProvider = ({
 
     const handleRefreshProxy = () => {
       const now = Date.now()
-      if (now - lastUpdateTime <= refreshThrottle) return
-      lastUpdateTime = now
+      if (now - lastProxyUpdateTime <= refreshThrottle) return
+      lastProxyUpdateTime = now
       refreshProxy().catch(() => {})
+    }
+
+    const handleRefreshProfiles = () => {
+      void revalidateQueries([['getProfiles']])
     }
 
     const initializeListeners = async () => {
@@ -161,6 +167,16 @@ export const AppDataProvider = ({
         cleanupFns.push(unlistenProfile)
       } catch (error) {
         console.error('[AppDataProvider] 监听 Profile 事件失败:', error)
+      }
+
+      try {
+        const unlistenProfiles = await listen(
+          'verge://refresh-profiles',
+          handleRefreshProfiles,
+        )
+        cleanupFns.push(unlistenProfiles)
+      } catch (error) {
+        console.error('[AppDataProvider] 监听 Profiles 刷新事件失败:', error)
       }
 
       try {

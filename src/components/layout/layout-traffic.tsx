@@ -3,8 +3,8 @@ import {
   ArrowUpwardRounded,
   MemoryRounded,
 } from '@mui/icons-material'
-import { Box, Typography } from '@mui/material'
 import type { BoxProps, SvgIconProps, TypographyProps } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -24,16 +24,17 @@ export const LayoutTraffic = () => {
 
   // whether hide traffic graph
   const trafficGraph = verge?.traffic_graph ?? true
+  const displayMemory = verge?.enable_memory_usage ?? true
 
   const trafficRef = useRef<TrafficRef>(null)
   const pageVisible = useVisibility()
 
   const {
     response: { data: traffic },
-  } = useTrafficData({ enabled: trafficGraph && pageVisible })
+  } = useTrafficData({ enabled: pageVisible })
   const {
     response: { data: memory },
-  } = useMemoryData()
+  } = useMemoryData({ enabled: displayMemory && pageVisible })
 
   // 监听数据变化，为图表添加数据点
   useEffect(() => {
@@ -41,12 +42,11 @@ export const LayoutTraffic = () => {
       trafficRef.current.appendData({
         up: traffic?.up || 0,
         down: traffic?.down || 0,
+        upTotal: traffic?.upTotal || 0,
+        downTotal: traffic?.downTotal || 0,
       })
     }
   }, [traffic])
-
-  // 显示内存使用情况的设置
-  const displayMemory = verge?.enable_memory_usage ?? true
 
   // 使用parseTraffic统一处理转换，保持与首页一致的显示格式
   const [up, upUnit] = parseTraffic(traffic?.up || 0)

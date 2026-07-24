@@ -119,7 +119,7 @@
     },
     "clashMode": {
       "errors": {
-        "communication": "Core communication error"
+        "communication": "Çekirdek iletişim hatası, lütfen bilgisayarınızı yeniden başlatıp tekrar deneyin"
       },
       "labels": {
         "rule": "Kural Modu",

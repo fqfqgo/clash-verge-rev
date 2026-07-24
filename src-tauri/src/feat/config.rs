@@ -25,6 +25,8 @@ pub async fn patch_clash(patch: &Mapping) -> Result<()> {
         if patch.get("secret").is_some() || patch.get("external-controller").is_some() {
             Config::generate().await?;
             CoreManager::global().restart_core().await?;
+        } else if patch.get("allow-lan").is_some() {
+            CoreManager::global().update_config_checked().await?;
         } else {
             if patch.get("mode").is_some() {
                 tray::Tray::global().update_menu_and_icon().await;
@@ -217,9 +219,6 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         handle::Handle::refresh_clash();
     }
     if update_flags.contains(UpdateFlags::VERGE_CONFIG) {
-        Config::verge()
-            .await
-            .edit_draft(|d| d.enable_global_hotkey = patch.enable_global_hotkey);
         handle::Handle::refresh_verge();
     }
     if update_flags.contains(UpdateFlags::LAUNCH) {
@@ -293,22 +292,19 @@ async fn ensure_tun_available() -> Result<bool> {
     if is_current_app_handle_admin(handle::Handle::app_handle()) {
         return Ok(false);
     }
-    let mut service_manager = SERVICE_MANAGER.lock().await;
     if service::is_service_available().await.is_ok() {
         // Service is installed and reachable — use it as-is. Do NOT call
         // refresh() here: a version mismatch would auto-trigger a reinstall
         // (uninstall + install), popping a confusing "uninstall service" admin
         // prompt when the user only enabled the system proxy / TUN. A real
         // version upgrade is left to the explicit repair action in settings.
-        service_manager.init().await?;
-        drop(service_manager);
+        SERVICE_MANAGER.init().await?;
         return Ok(true);
     }
 
-    service_manager
-        .handle_service_status(&ServiceStatus::InstallRequired)
+    SERVICE_MANAGER
+        .handle_service_status(ServiceStatus::InstallRequired)
         .await?;
-    drop(service_manager);
     Ok(true)
 }
 

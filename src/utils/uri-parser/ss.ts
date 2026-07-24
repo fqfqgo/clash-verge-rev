@@ -4,6 +4,7 @@ import {
   getCipher,
   getIfNotBlank,
   getIfPresent,
+  normalizeHost,
   parseBoolOrPresence,
   parseQueryString,
   parseRequiredPort,
@@ -37,7 +38,7 @@ export function URI_SS(line: string): IProxyShadowsocksConfig {
   if (portIdx === -1) {
     throw new Error('Invalid ss uri: missing port')
   }
-  const server = serverAndPort.slice(0, portIdx)
+  const server = normalizeHost(serverAndPort.slice(0, portIdx))
   const portRaw = serverAndPort.slice(portIdx + 1)
   const port = parseRequiredPort(portRaw, 'Invalid ss uri: invalid port')
 
@@ -92,7 +93,14 @@ export function URI_SS(line: string): IProxyShadowsocksConfig {
   const v2rayPluginParam = queryParams['v2ray-plugin']
   if (!proxy.plugin && v2rayPluginParam) {
     proxy.plugin = 'v2ray-plugin'
-    proxy['plugin-opts'] = JSON.parse(decodeBase64OrOriginal(v2rayPluginParam))
+    try {
+      proxy['plugin-opts'] = JSON.parse(
+        decodeBase64OrOriginal(v2rayPluginParam),
+      )
+    } catch (e) {
+      console.warn('[URI_SS] v2ray-plugin JSON.parse failed:', e)
+      proxy['plugin-opts'] = {}
+    }
   }
 
   if (

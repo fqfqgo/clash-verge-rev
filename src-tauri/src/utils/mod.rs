@@ -21,3 +21,4 @@ pub mod tray_speed;
 pub mod window_manager;
 #[cfg(target_os = "windows")]
 pub mod windows;
+pub mod yaml_emitter;

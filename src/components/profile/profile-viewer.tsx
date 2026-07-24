@@ -104,6 +104,8 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
         const option = form.option ? { ...form.option } : undefined
         if (option?.timeout_seconds) {
           option.timeout_seconds = +option.timeout_seconds
+        } else if (option) {
+          option.timeout_seconds = undefined
         }
         if (option?.update_interval) {
           option.update_interval = +option.update_interval
@@ -277,6 +279,15 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
           />
         )}
       />
+
+      {isLocal && openType === 'new' && (
+        <FileInput
+          onChange={(file, val) => {
+            setValue('name', getValues('name') || file.name)
+            fileDataRef.current = val
+          }}
+        />
+      )}
 
       {isRemote && (
         <>
