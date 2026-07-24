@@ -88,7 +88,14 @@ jobs:
   update_tag:
     name: Update tag
     runs-on: ubuntu-latest
-    needs: [release, release-macos, release-for-linux-arm, release-for-fixed-webview2]
+    needs:
+      [
+        prepare_release,
+        release,
+        release-macos,
+        release-for-linux-arm,
+        release-for-fixed-webview2,
+      ]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
