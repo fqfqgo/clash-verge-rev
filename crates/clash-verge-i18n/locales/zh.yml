@@ -42,6 +42,7 @@ service:
   adminInstallPrompt: 安装 Clash Verge 服务需要管理员权限
   adminUninstallPrompt: 卸载 Clash Verge 服务需要管理员权限
   translocatedCorePath: 检测到 Clash Verge 从临时路径（App Translocation）运行，无法定位内核。请将 Clash Verge 移动到「应用程序」文件夹后重新打开。
+  ipcNotReady: Clash Verge 服务安装后未能及时响应，请稍后重试；如果持续失败，可尝试重启电脑，或检查是否有安全软件拦截了服务进程。
 tray:
   dashboard: 仪表板
   ruleMode: 规则模式

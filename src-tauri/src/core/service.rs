@@ -632,7 +632,11 @@ async fn wait_for_service_ipc(manager: &ServiceManager) -> Result<()> {
         manager.set_status(ServiceStatus::Unavailable("Waiting for service to be available".into()));
     }
 
-    result
+    // Surface a translated, actionable message instead of the raw "IPC path
+    // not ready" string — it's meaningless to end users (see macOS report
+    // where the toast just showed that English text after granting the
+    // install password and getting no working TUN mode).
+    result.context(clash_verge_i18n::t!("service.ipcNotReady").into_owned())
 }
 
 pub fn is_service_ipc_path_exists() -> bool {
@@ -644,7 +648,10 @@ impl ServiceManager {
         clash_verge_service_ipc::IpcConfig {
             default_timeout: Duration::from_millis(150),
             retry_delay: Duration::from_millis(250),
-            max_retries: 20,
+            // A fresh install has to wait for the OS to actually start the daemon
+            // (e.g. macOS launchd bootstrap + Gatekeeper check on first launch),
+            // which can take longer than the previous 5s budget allowed.
+            max_retries: 40,
         }
     }
 
