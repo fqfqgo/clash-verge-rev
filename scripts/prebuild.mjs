@@ -104,44 +104,6 @@ async function getCachedVersion(key) {
   }
   return null
 }
-async function getStaleCachedVersion(key) {
-  const cache = await loadVersionCache()
-  const cached = cache[key]
-  return cached?.version ?? null
-}
-function createFetchOptions(extra = {}) {
-  const options = { ...extra }
-  const httpProxy =
-    process.env.HTTP_PROXY ||
-    process.env.http_proxy ||
-    process.env.HTTPS_PROXY ||
-    process.env.https_proxy
-  if (httpProxy) options.agent = new HttpsProxyAgent(httpProxy)
-  return options
-}
-async function fetchWithRetries(
-  url,
-  options,
-  { retries = 5, delayMs = 2000 } = {},
-) {
-  let lastErr
-  for (let i = 0; i < retries; i++) {
-    try {
-      const response = await fetch(url, options)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${url}: ${response.status}`)
-      }
-      return response
-    } catch (err) {
-      lastErr = err
-      log_error(`fetch try ${i + 1}/${retries} failed:`, err.message)
-      if (i < retries - 1) {
-        await new Promise((r) => setTimeout(r, delayMs * (i + 1)))
-      }
-    }
-  }
-  throw lastErr
-}
 async function setCachedVersion(key, version) {
   const cache = await loadVersionCache()
   cache[key] = { version, timestamp: Date.now() }
@@ -616,11 +578,18 @@ const resolveServicePermission = async () => {
 // Other resource resolvers (service, mmdb, geosite, geoip, enableLoopback)
 // =======================
 const SERVICE_REPO = 'clash-verge-rev/clash-verge-service-ipc'
-const SERVICE_LATEST_URL = `https://github.com/${SERVICE_REPO}/releases/latest`
-const SERVICE_API_LATEST_URL = `https://api.github.com/repos/${SERVICE_REPO}/releases/latest`
 const SERVICE_URL_PREFIX = `https://github.com/${SERVICE_REPO}/releases/download`
-/** Fallback when GitHub is unreachable (e.g. CI socket hang up). Bump when upgrading service-ipc. */
-const SERVICE_VERSION_FALLBACK = 'v2.3.0'
+/**
+ * The downloaded service/IPC binaries MUST speak the same wire protocol as the
+ * `clash_verge_service_ipc` crate compiled into the app (see the `rev` pin in
+ * src-tauri/Cargo.toml). Auto-resolving "latest" here used to silently drift
+ * ahead of that pin whenever upstream cut a new service-ipc release, handing
+ * users a daemon binary with a newer/incompatible IPC API than what the GUI's
+ * compiled-in client expects — the app then hangs forever on "IPC path not
+ * ready" no matter how long it retries, since client and server can never
+ * complete a handshake. Always bump this together with the Cargo.toml `rev`.
+ */
+const SERVICE_VERSION_PINNED = 'v2.3.3'
 let SERVICE_VERSION
 
 const SERVICE_BINARIES = [
@@ -638,86 +607,18 @@ function serviceFileInfo(name) {
   }
 }
 
-function parseServiceVersionFromUrl(url) {
-  const match = url.match(/\/releases\/tag\/([^/?#]+)/)
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-async function resolveServiceVersionFromApi() {
-  const response = await fetchWithRetries(
-    SERVICE_API_LATEST_URL,
-    createFetchOptions({
-      method: 'GET',
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'clash-verge-prebuild',
-      },
-    }),
-    { retries: 5, delayMs: 2000 },
-  )
-  const data = await response.json()
-  if (data?.tag_name) return data.tag_name
-  throw new Error('Unable to resolve service release tag from GitHub API')
-}
-
-async function resolveServiceVersionFromLatestUrl() {
-  const response = await fetchWithRetries(
-    SERVICE_LATEST_URL,
-    createFetchOptions({ method: 'GET', redirect: 'follow' }),
-    { retries: 5, delayMs: 2000 },
-  )
-  const version = parseServiceVersionFromUrl(response.url)
-  if (!version) {
-    throw new Error(
-      `Unable to resolve service release tag from ${response.url}`,
-    )
-  }
-  return version
-}
-
-async function getLatestServiceVersion() {
+async function resolveServiceVersion() {
+  // No network "latest" resolution on purpose — see comment on
+  // SERVICE_VERSION_PINNED. CLASH_VERGE_SERVICE_VERSION remains available for
+  // deliberately testing an upgrade candidate (together with a matching
+  // Cargo.toml rev bump), it's just no longer the auto-resolved default.
   const envVersion = process.env.CLASH_VERGE_SERVICE_VERSION?.trim()
-  if (envVersion) {
-    SERVICE_VERSION = envVersion
-    log_info(
-      `Service version from CLASH_VERGE_SERVICE_VERSION: ${SERVICE_VERSION}`,
-    )
-    return
-  }
-
-  if (!FORCE) {
-    const cached = await getCachedVersion('SERVICE_VERSION')
-    if (cached) {
-      SERVICE_VERSION = cached
-      return
-    }
-  }
-
-  try {
-    SERVICE_VERSION = await resolveServiceVersionFromApi()
-  } catch (apiErr) {
-    log_error('GitHub API service version failed:', apiErr.message)
-    try {
-      SERVICE_VERSION = await resolveServiceVersionFromLatestUrl()
-    } catch (webErr) {
-      log_error(
-        'GitHub releases/latest service version failed:',
-        webErr.message,
-      )
-      const stale = await getStaleCachedVersion('SERVICE_VERSION')
-      if (stale) {
-        SERVICE_VERSION = stale
-        log_info(`Using stale cached service version: ${SERVICE_VERSION}`)
-        return
-      }
-      SERVICE_VERSION = SERVICE_VERSION_FALLBACK
-      log_info(`Using pinned fallback service version: ${SERVICE_VERSION}`)
-      return
-    }
-  }
-
-  log_info(`Latest service version: ${SERVICE_VERSION}`)
-  await setCachedVersion('SERVICE_VERSION', SERVICE_VERSION)
+  SERVICE_VERSION = envVersion || SERVICE_VERSION_PINNED
+  log_info(
+    envVersion
+      ? `Service version from CLASH_VERGE_SERVICE_VERSION: ${SERVICE_VERSION}`
+      : `Using pinned service version: ${SERVICE_VERSION}`,
+  )
 }
 
 async function findExtractedFile(dir, fileName) {
@@ -747,7 +648,7 @@ async function resolveServiceBundle() {
     return
   }
 
-  await getLatestServiceVersion()
+  await resolveServiceVersion()
 
   const archiveExt = platform === 'win32' ? 'zip' : 'tar.gz'
   const archiveFile = `clash-verge-service-ipc-${SERVICE_VERSION}-${SIDECAR_HOST}.${archiveExt}`
