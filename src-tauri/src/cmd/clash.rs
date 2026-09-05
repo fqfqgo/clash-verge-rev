@@ -81,31 +81,6 @@ pub async fn change_clash_core(clash_core: String) -> CmdResult<Option<CommandFa
 }
 
 #[tauri::command]
-pub async fn start_core() -> CmdResult {
-    let result = CoreManager::global()
-        .start_core()
-        .await
-        .map_err(|error| proxy_aware_coded_error(&error, "CORE_START_FAILED"));
-    if result.is_ok() {
-        handle::Handle::refresh_clash();
-    }
-    result
-}
-
-#[tauri::command]
-pub async fn stop_core() -> CmdResult {
-    logging_error!(Type::Core, profiles_save_file_safe().await);
-    let result = CoreManager::global()
-        .stop_core()
-        .await
-        .map_err(|error| proxy_aware_coded_error(&error, "CORE_STOP_FAILED"));
-    if result.is_ok() {
-        handle::Handle::refresh_clash();
-    }
-    result
-}
-
-#[tauri::command]
 pub async fn restart_core() -> CmdResult {
     logging_error!(Type::Core, profiles_save_file_safe().await);
     let result = CoreManager::global()
