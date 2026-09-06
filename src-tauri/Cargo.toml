@@ -23,6 +23,7 @@ tauri-dev = ["dep:tauri-plugin-devtools"]
 tokio-trace = ["dep:console-subscriber"]
 clippy = ["tauri/test"]
 tracing = []
+perf-harness = ["dep:tauri-plugin-wdio-webdriver"]
 
 [package.metadata.bundle]
 identifier = "io.github.clash-verge-rev.clash-verge-rev"
@@ -114,6 +115,7 @@ tokio-util = { version = "0.7.19", features = ["time"] }
 libc = "0.2.189"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-wdio-webdriver = { version = "=1.3.0", optional = true }
 core-foundation = "0.9"
 system-configuration = "0.7"
 objc2 = "0.6.4"
