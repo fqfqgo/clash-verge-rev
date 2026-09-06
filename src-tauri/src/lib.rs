@@ -231,8 +231,6 @@ pub fn run() -> std::process::ExitCode {
         return std::process::ExitCode::SUCCESS;
     }
 
-    let _ = utils::dirs::init_portable_flag();
-
     // Runs before the singleton check, which is the first thing to open a file in that directory.
     #[cfg(windows)]
     if let Err(error) =
