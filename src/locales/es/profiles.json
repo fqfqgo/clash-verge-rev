@@ -52,6 +52,7 @@
       },
       "notices": {
         "forceRefreshCompleted": "Force refresh completed",
+        "discardedKeys": "Las extensiones escribieron {{keys}}, campos gestionados por los ajustes, por lo que esos valores se descartaron",
         "emergencyRefreshFailed": "Emergency refresh failed: {{message}}"
       },
       "tooltips": {
