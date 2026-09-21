@@ -1,0 +1,28 @@
+---
+description: clash-verge-service-ipc 下载版本必须与 Cargo.toml 的 rev 锁死
+alwaysApply: true
+---
+
+# 服务二进制版本 ≠ IPC 客户端库版本，两者必须锁死一致
+
+## 血泪教训（2026-07，v2.5.19/v2.5.20 全平台"IPC path not ready"）
+
+- `src-tauri/Cargo.toml` 里 `clash_verge_service_ipc` 通过 `git rev` **手动钉死**了一个 commit，
+  编译进 GUI 的 IPC **客户端**协议就固定在那个版本。
+- 但 `scripts/prebuild.mjs` 下载后台**服务二进制**（`clash-verge-service*`）时，之前是自动请求
+  `clash-verge-service-ipc` 仓库的 **"latest release"**，跟上面的 `rev` 完全脱钩。
+- 一旦上游发布了带 breaking change 的新版 service-ipc（如那次的"IPC/Service 全面重构"），
+  新构建下载到的服务二进制协议 ≠ GUI 编译进去的客户端协议，握手永远失败，
+  表现为不管等多久都报 **"IPC path not ready"**，且**所有平台**、**任何新装/重装服务**都会中招——
+  当时误判成"macOS 专属"或"启动慢"，改超时/文案都是治标不治本。
+
+## 规则
+
+1. `scripts/prebuild.mjs` 里的 `SERVICE_VERSION_PINNED` **必须**与
+   `src-tauri/Cargo.toml` 里 `clash_verge_service_ipc` 的 `rev`/`version` 指向同一个 tag。
+2. **禁止**让 prebuild 脚本自动拉取 service-ipc 的 "latest release"；下载版本只能是固定 tag
+   （`CLASH_VERGE_SERVICE_VERSION` 环境变量仅用于刻意测试新版本，不作为默认行为）。
+3. 升级 `clash_verge_service_ipc` 的 `rev` 时，**同一次改动**里必须同步更新
+   `SERVICE_VERSION_PINNED`；反过来升级 `SERVICE_VERSION_PINNED` 时也要同步升级 `rev`。
+4. 排查"服务/TUN 装不上、IPC 超时"类问题时，**先核对这两个版本是否一致**，
+   再去查超时时间、权限、launchd/plist 之类的次要因素。
