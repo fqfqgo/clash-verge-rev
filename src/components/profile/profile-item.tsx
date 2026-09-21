@@ -50,6 +50,11 @@ import parseTraffic from '@/utils/parse-traffic'
 import { ProfileBox } from './profile-box'
 import { ProxiesEditorViewer } from './proxies-editor-viewer'
 import { QrViewer } from './qr-viewer'
+import { SubscriptionPasswordDialog } from './subscription-password-dialog'
+import {
+  isSubscriptionPasswordError,
+  isSubscriptionWrongPassword,
+} from './subscription-password-utils'
 const round = keyframes`
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -108,6 +113,9 @@ const ProfileItemBase = (props: ProfileItemProps) => {
   const setLoadingCache = useSetLoadingCache()
 
   const [showNextUpdate, setShowNextUpdate] = useState(false)
+  const [passwordRetry, setPasswordRetry] =
+    useState<Partial<IProfileOption> | null>(null)
+  const [wrongPassword, setWrongPassword] = useState(false)
   const showNextUpdateRef = useRef(false)
   const [nextUpdateTime, setNextUpdateTime] = useState('')
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -400,12 +408,18 @@ const ProfileItemBase = (props: ProfileItemProps) => {
       }
     }
 
+    const payload = Object.keys(option).length > 0 ? option : undefined
     try {
-      const payload = Object.keys(option).length > 0 ? option : undefined
       await updateProfile(itemData.uid, payload)
 
       void mutateProfiles()
-    } catch {
+    } catch (err) {
+      if (isSubscriptionPasswordError(err)) {
+        setPasswordRetry(payload ?? {})
+        setWrongPassword(isSubscriptionWrongPassword(err))
+      } else {
+        showNotice.error(err)
+      }
     } finally {
       setLoading(false)
     }
@@ -951,6 +965,29 @@ const ProfileItemBase = (props: ProfileItemProps) => {
           {t('profiles.modals.confirmDelete.message')}
         </Typography>
       </BaseDialog>
+      <SubscriptionPasswordDialog
+        open={passwordRetry !== null}
+        wrongPassword={wrongPassword}
+        initialValue={itemData.option?.login_password}
+        onCancel={() => setPasswordRetry(null)}
+        onConfirm={async (login_password) => {
+          try {
+            await updateProfile(itemData.uid, {
+              ...passwordRetry,
+              login_password,
+            })
+            void mutateProfiles()
+            setPasswordRetry(null)
+          } catch (err) {
+            if (isSubscriptionPasswordError(err)) {
+              setWrongPassword(isSubscriptionWrongPassword(err))
+            } else {
+              setPasswordRetry(null)
+              showNotice.error(err)
+            }
+          }
+        }}
+      />
       {qrOpen && itemData.url && (
         <QrViewer
           open={true}

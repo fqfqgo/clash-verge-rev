@@ -1,6 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/polyfills/*.js!"],
+  "entry": [
+    "src/polyfills/*.js!",
+    "scripts/portable.mjs!",
+    "scripts/portable-fixed-webview2.mjs!"
+  ],
   "project": ["src/**/*.{js,jsx,ts,tsx,sass,scss}!", "scripts/**/*.{js,mjs}!"],
   "include": [
     "files",
@@ -14,10 +18,12 @@
     "duplicates",
     "cycles"
   ],
-  "ignoreBinaries": ["rustc", "cc"],
+  "ignoreBinaries": ["rustc", "cc", "portable-fixed-webview2"],
   "ignoreDependencies": ["lint-staged"],
   "ignoreIssues": {
-    "src/types/generated/**": ["exports", "types"]
+    "src/types/generated/**": ["exports", "types"],
+    "src/constants/fork.ts": ["exports"],
+    "src/services/cmds.ts": ["exports"]
   },
   "cycles": {
     "dynamicImports": true
