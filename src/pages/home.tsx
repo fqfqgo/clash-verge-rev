@@ -36,32 +36,39 @@ import { ProxyTunCard } from '@/components/home/proxy-tun-card'
 import { FORK_DOC_URL } from '@/constants/fork'
 import { useProfiles } from '@/hooks/use-profiles'
 import { useVerge } from '@/hooks/use-verge'
-import {
-  entry_lightweight_mode,
-  launchBrowserWithProxy,
-  openWebUrl,
-} from '@/services/cmds'
+import { entry_lightweight_mode, launchBrowserWithProxy } from '@/services/cmds'
+import { openExternalUrl } from '@/utils/open-external-url'
 
-const LazyTestCard = lazy(() =>
+const preloadTestCard = () =>
   import('@/components/home/test-card').then((module) => ({
     default: module.TestCard,
-  })),
-)
-const LazyIpInfoCard = lazy(() =>
+  }))
+const preloadIpInfoCard = () =>
   import('@/components/home/ip-info-card').then((module) => ({
     default: module.IpInfoCard,
-  })),
-)
-const LazyClashInfoCard = lazy(() =>
+  }))
+const preloadClashInfoCard = () =>
   import('@/components/home/clash-info-card').then((module) => ({
     default: module.ClashInfoCard,
-  })),
-)
-const LazySystemInfoCard = lazy(() =>
+  }))
+const preloadSystemInfoCard = () =>
   import('@/components/home/system-info-card').then((module) => ({
     default: module.SystemInfoCard,
-  })),
-)
+  }))
+
+const LazyTestCard = lazy(preloadTestCard)
+const LazyIpInfoCard = lazy(preloadIpInfoCard)
+const LazyClashInfoCard = lazy(preloadClashInfoCard)
+const LazySystemInfoCard = lazy(preloadSystemInfoCard)
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const preloadHomePageCards = () =>
+  Promise.all([
+    preloadTestCard().catch(() => {}),
+    preloadIpInfoCard().catch(() => {}),
+    preloadClashInfoCard().catch(() => {}),
+    preloadSystemInfoCard().catch(() => {}),
+  ])
 
 // 定义首页卡片设置接口
 interface HomeCardsSettings {
@@ -269,7 +276,7 @@ const HomePage = () => {
 
   // 文档链接函数
   const toGithubDoc = useLockFn(() => {
-    return openWebUrl(FORK_DOC_URL)
+    return openExternalUrl(FORK_DOC_URL)
   })
 
   // 新增：打开设置弹窗

@@ -7,8 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { BaseDialog, BaseEmpty, DialogRef } from '@/components/base'
 import { useClashInfo } from '@/hooks/use-clash'
 import { useVerge } from '@/hooks/use-verge'
-import { openWebUrl } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
+import { openExternalUrl } from '@/utils/open-external-url'
 
 import { WebUIItem } from './web-ui-item'
 
@@ -74,9 +74,17 @@ export function WebUIViewer({ ref }: { ref?: Ref<DialogRef> }) {
       let url = value.trim().replaceAll('%host', '127.0.0.1')
 
       if (url.includes('%port') || url.includes('%secret')) {
-        if (!clashInfo) throw new Error('failed to get clash info')
+        if (!clashInfo) {
+          throw new Error(
+            t('settings.modals.webUI.errors.clashInfoUnavailable'),
+          )
+        }
         if (!clashInfo.server?.includes(':')) {
-          throw new Error(`failed to parse the server "${clashInfo.server}"`)
+          throw new Error(
+            t('settings.modals.webUI.errors.invalidServer', {
+              server: clashInfo.server,
+            }),
+          )
         }
 
         const port = clashInfo.server
@@ -90,9 +98,9 @@ export function WebUIViewer({ ref }: { ref?: Ref<DialogRef> }) {
         )
       }
 
-      await openWebUrl(url)
+      await openExternalUrl(url)
     } catch (e: any) {
-      showNotice.error(e)
+      showNotice.error('settings.modals.webUI.errors.openFailed', e)
     }
   })
 

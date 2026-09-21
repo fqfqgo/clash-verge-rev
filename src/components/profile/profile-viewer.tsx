@@ -1,9 +1,6 @@
-import Visibility from '@mui/icons-material/Visibility'
-import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import {
   Box,
   FormControl,
-  IconButton,
   InputAdornment,
   InputLabel,
   MenuItem,
@@ -34,19 +31,18 @@ export interface ProfileViewerRef {
   edit: (item: IProfileItem) => void
 }
 
-// create or edit the profile
-// remote / local
 type ProfileViewerProps = Props & { ref?: Ref<ProfileViewerRef> }
+
+// 同后端 constants::profile::MIN_UPDATE_INTERVAL
+const MIN_UPDATE_INTERVAL = 1440
 
 export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [openType, setOpenType] = useState<'new' | 'edit'>('new')
   const [loading, setLoading] = useState(false)
-  const [showLoginPassword, setShowLoginPassword] = useState(false)
   const { profiles } = useProfiles()
 
-  // file input
   const fileDataRef = useRef<string | null>(null)
 
   const { control, watch, setValue, reset, handleSubmit, getValues } =
@@ -59,6 +55,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
         option: {
           with_proxy: false,
           self_proxy: false,
+          allow_auto_update: true,
         },
       },
     })
@@ -94,13 +91,13 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
     handleSubmit(async (form) => {
       setLoading(true)
       try {
-        // 基本验证
-        if (!form.type) throw new Error('`Type` should not be null')
+        if (!form.type) {
+          throw new Error(t('profiles.modals.profileForm.errors.typeRequired'))
+        }
         if (form.type === 'remote' && !form.url) {
-          throw new Error('The URL should not be null')
+          throw new Error(t('profiles.modals.profileForm.errors.urlRequired'))
         }
 
-        // 处理表单数据
         const option = form.option ? { ...form.option } : undefined
         if (option?.timeout_seconds) {
           option.timeout_seconds = +option.timeout_seconds
@@ -115,49 +112,48 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
         if (option?.user_agent === '') {
           option.user_agent = undefined
         }
-        if (option?.login_password === '') {
-          option.login_password = undefined
-        }
 
         const name = form.name || `${form.type} file`
         const item = { ...form, name, option }
         const isRemote = form.type === 'remote'
         const isUpdate = openType === 'edit'
 
-        // 判断是否是当前激活的配置
         const isActivating = isUpdate && form.uid === (profiles?.current ?? '')
 
-        // 保存原始代理设置以便回退成功后恢复
+        // Preserve proxy settings when the remote retry succeeds through another route.
         const originalOptions = {
           with_proxy: form.option?.with_proxy,
           self_proxy: form.option?.self_proxy,
         }
 
-        // 执行创建或更新操作，本地配置不需要回退机制
         if (!isRemote) {
           if (openType === 'new') {
             await createProfile(item, fileDataRef.current)
           } else {
-            if (!form.uid) throw new Error('UID not found')
+            if (!form.uid) {
+              throw new Error(
+                t('profiles.modals.profileForm.errors.uidMissing'),
+              )
+            }
             await patchProfile(form.uid, item)
           }
         } else {
-          // 远程配置使用回退机制
           try {
-            // 尝试正常操作
             if (openType === 'new') {
               await createProfile(item, fileDataRef.current)
             } else {
-              if (!form.uid) throw new Error('UID not found')
+              if (!form.uid) {
+                throw new Error(
+                  t('profiles.modals.profileForm.errors.uidMissing'),
+                )
+              }
               await patchProfile(form.uid, item)
             }
           } catch {
-            // 首次创建/更新失败，尝试使用自身代理
             showNotice.info(
               'profiles.modals.profileForm.feedback.notifications.creationRetry',
             )
 
-            // 使用自身代理的配置
             const retryItem = {
               ...item,
               option: {
@@ -167,14 +163,16 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               },
             }
 
-            // 使用自身代理再次尝试
             if (openType === 'new') {
               await createProfile(retryItem, fileDataRef.current)
             } else {
-              if (!form.uid) throw new Error('UID not found')
+              if (!form.uid) {
+                throw new Error(
+                  t('profiles.modals.profileForm.errors.uidMissing'),
+                )
+              }
               await patchProfile(form.uid, retryItem)
 
-              // 编辑模式下恢复原始代理设置
               await patchProfile(form.uid, { option: originalOptions })
             }
 
@@ -184,17 +182,15 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
           }
         }
 
-        // 成功后的操作
         setOpen(false)
         setTimeout(() => reset(), 500)
         fileDataRef.current = null
 
-        // 优化：UI先关闭，异步通知父组件
         setTimeout(() => {
           onChange(isActivating)
         }, 0)
       } catch (err) {
-        showNotice.error(err)
+        showNotice.error('profiles.modals.profileForm.errors.saveFailed', err)
       } finally {
         setLoading(false)
       }
@@ -253,8 +249,12 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               autoFocus
               label={t('profiles.modals.profileForm.fields.type')}
             >
-              <MenuItem value="remote">Remote</MenuItem>
-              <MenuItem value="local">Local</MenuItem>
+              <MenuItem value="remote">
+                {t('profiles.modals.profileForm.types.remote')}
+              </MenuItem>
+              <MenuItem value="local">
+                {t('profiles.modals.profileForm.types.local')}
+              </MenuItem>
             </Select>
           </FormControl>
         )}
@@ -312,7 +312,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                 {...text}
                 {...field}
                 placeholder={`clash-verge/v${version}`}
-                label="User Agent"
+                label={t('profiles.modals.profileForm.fields.userAgent')}
               />
             )}
           />
@@ -339,84 +339,44 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               />
             )}
           />
-
           <Controller
-            name="option.login_password"
+            name="option.update_interval"
             control={control}
-            render={({ field }) => (
-              <TextField
-                {...text}
-                {...field}
-                type={showLoginPassword ? 'text' : 'password'}
-                autoComplete="off"
-                label={t('profiles.modals.profileForm.fields.loginPassword')}
-                placeholder={t(
-                  'profiles.modals.profileForm.fields.loginPasswordPlaceholder',
-                )}
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowLoginPassword((v) => !v)}
-                          edge="end"
-                          aria-label={t(
-                            showLoginPassword
-                              ? 'shared.actions.hidePassword'
-                              : 'shared.actions.showPassword',
-                          )}
-                        >
-                          {showLoginPassword ? (
-                            <VisibilityOff fontSize="small" />
-                          ) : (
-                            <Visibility fontSize="small" />
-                          )}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            )}
+            render={({ field }) => {
+              const interval = Number(field.value)
+              const tooFrequent =
+                Number.isFinite(interval) &&
+                interval > 0 &&
+                interval < MIN_UPDATE_INTERVAL
+
+              return (
+                <TextField
+                  {...text}
+                  {...field}
+                  type="number"
+                  label={t('profiles.modals.profileForm.fields.updateInterval')}
+                  helperText={
+                    tooFrequent
+                      ? t(
+                          'profiles.modals.profileForm.warnings.frequentUpdate',
+                          { minutes: MIN_UPDATE_INTERVAL },
+                        )
+                      : undefined
+                  }
+                  slotProps={{
+                    formHelperText: { sx: { color: 'warning.main' } },
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          {t('shared.units.minutes')}
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              )
+            }}
           />
-        </>
-      )}
-
-      {(isRemote || isLocal) && (
-        <Controller
-          name="option.update_interval"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...text}
-              {...field}
-              type="number"
-              label={t('profiles.modals.profileForm.fields.updateInterval')}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      {t('shared.units.minutes')}
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-          )}
-        />
-      )}
-
-      {isLocal && openType === 'new' && (
-        <FileInput
-          onChange={(file, val) => {
-            setValue('name', getValues('name') || file.name)
-            fileDataRef.current = val
-          }}
-        />
-      )}
-
-      {isRemote && (
-        <>
           <Controller
             name="option.with_proxy"
             control={control}
@@ -464,7 +424,11 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                 <InputLabel>
                   {t('profiles.modals.profileForm.fields.allowAutoUpdate')}
                 </InputLabel>
-                <Switch checked={field.value} {...field} color="primary" />
+                <Switch
+                  checked={field.value ?? true}
+                  {...field}
+                  color="primary"
+                />
               </StyledBox>
             )}
           />

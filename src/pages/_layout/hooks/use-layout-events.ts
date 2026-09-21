@@ -1,98 +1,71 @@
 import { useEffect } from 'react'
 
-import { useListen } from '@/hooks/use-listen'
-import { revalidateQueries } from '@/services/query-client'
+import { revalidateProfiles } from '@/hooks/use-profiles'
+import { runStateQueryKey } from '@/hooks/use-system-state'
+import type { RunState } from '@/services/cmds'
+import { subscribeVergeEvents } from '@/services/events'
+import { revalidateQueries, setCacheData } from '@/services/query-client'
 
 export const useLayoutEvents = (
   handleNotice: (payload: [string, string]) => void,
 ) => {
-  const { addListener } = useListen()
-
   useEffect(() => {
-    const unlisteners: Array<() => void> = []
-    let disposed = false
+    let lastProfileId: string | null = null
+    let lastProfileUpdateTime = 0
+    const refreshThrottle = 800
+
     const revalidateKeys = (keys: readonly string[]) => {
       void revalidateQueries(keys.map((key) => [key]))
     }
 
-    const register = (
-      maybeUnlisten: void | (() => void) | Promise<void | (() => void)>,
-    ) => {
-      if (!maybeUnlisten) return
-
-      if (typeof maybeUnlisten === 'function') {
-        unlisteners.push(maybeUnlisten)
+    const handleProfileChanged = (newProfileId: string) => {
+      const now = Date.now()
+      if (
+        lastProfileId === newProfileId &&
+        now - lastProfileUpdateTime < refreshThrottle
+      ) {
         return
       }
-
-      maybeUnlisten
-        .then((unlisten) => {
-          if (!unlisten) return
-          if (disposed) {
-            unlisten()
-          } else {
-            unlisteners.push(unlisten)
-          }
-        })
-        .catch((error) =>
-          console.error('[Event Listener] Registration failed:', error),
-        )
+      lastProfileId = newProfileId
+      lastProfileUpdateTime = now
+      void revalidateProfiles()
     }
 
-    register(
-      addListener('verge://refresh-clash-config', () => {
-        revalidateKeys([
-          'getProxies',
-          'getVersion',
-          'getClashConfig',
-          'getClashMode',
-          'getRuntimeConfig',
-          'getProxyProviders',
-          'getRules',
-          'getRuleProviders',
-        ])
-      }),
+    return subscribeVergeEvents(
+      {
+        'profile-changed': handleProfileChanged,
+        'verge://refresh-profiles': () => void revalidateProfiles(),
+        'verge://refresh-clash-config': () => {
+          revalidateKeys([
+            'getProxyView',
+            'getVersion',
+            'getClashConfig',
+            'getClashInfo',
+            'getClashMode',
+            'getRuntimeConfig',
+            'getRules',
+            'getRuleProviders',
+          ])
+        },
+        'verge://refresh-verge-config': () => {
+          revalidateKeys([
+            'getVergeConfig',
+            'getSystemProxy',
+            'getAutotemProxy',
+          ])
+        },
+        // Transitions carry the full run-state snapshot, so write it directly to cache.
+        'verge://run-state-changed': (payload) => {
+          void setCacheData<RunState>(runStateQueryKey, payload)
+        },
+        'verge://notice-message': handleNotice,
+      },
+      // Re-read event-only state after subscribing to close the initial race window.
+      () => {
+        revalidateKeys(['getRuntimeState', 'getVergeConfig'])
+        handleNotice(['dns_override::auto_disabled', ''])
+        handleNotice(['service_core::sidecar_fallback', ''])
+      },
     )
-
-    register(
-      addListener('verge://refresh-verge-config', () => {
-        revalidateKeys([
-          'getVergeConfig',
-          'getSystemProxy',
-          'getAutotemProxy',
-          'getRunningMode',
-          'isServiceAvailable',
-          'getSystemState',
-        ])
-      }),
-    )
-
-    register(
-      addListener('verge://notice-message', ({ payload }) =>
-        handleNotice(payload as [string, string]),
-      ),
-    )
-
-    return () => {
-      disposed = true
-      const errors: Error[] = []
-
-      unlisteners.forEach((unlisten) => {
-        try {
-          unlisten()
-        } catch (error) {
-          errors.push(error instanceof Error ? error : new Error(String(error)))
-        }
-      })
-
-      if (errors.length > 0) {
-        console.error(
-          `[Event Listener] Encountered ${errors.length} errors during cleanup:`,
-          errors,
-        )
-      }
-
-      unlisteners.length = 0
-    }
-  }, [addListener, handleNotice])
+  }, [handleNotice])
 }

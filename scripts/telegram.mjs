@@ -21,7 +21,7 @@ async function sendTelegramNotification() {
 
   const downloadUrl =
     process.env.DOWNLOAD_URL ||
-    `https://github.com/fqfqgo/clash-verge-rev/releases/download/v${version}`
+    `https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v${version}`
 
   const isAutobuild =
     process.env.BUILD_TYPE === 'autobuild' || version.includes('autobuild')
@@ -32,7 +32,6 @@ async function sendTelegramNotification() {
   log_info(`Target channel: ${chatId}`)
   log_info(`Download URL: ${downloadUrl}`)
 
-  // 读取发布说明和下载地址
   let releaseContent
   try {
     releaseContent = readFileSync('release.txt', 'utf-8')
@@ -42,19 +41,24 @@ async function sendTelegramNotification() {
     releaseContent = '更多新功能现已支持，详细更新日志请查看发布页面。'
   }
 
-  // Markdown 转换为 HTML
   function convertMarkdownToTelegramHTML(content) {
+    // Strip stray HTML tags and markdown bold from heading text
+    const cleanHeading = (text) =>
+      text
+        .replace(/<\/?[^>]+>/g, '')
+        .replace(/\*\*/g, '')
+        .trim()
     return content
       .split('\n')
       .map((line) => {
         if (line.trim().length === 0) {
           return ''
         } else if (line.startsWith('## ')) {
-          return `<b>${line.replace('## ', '')}</b>`
+          return `<b>${cleanHeading(line.replace('## ', ''))}</b>`
         } else if (line.startsWith('### ')) {
-          return `<b>${line.replace('### ', '')}</b>`
+          return `<b>${cleanHeading(line.replace('### ', ''))}</b>`
         } else if (line.startsWith('#### ')) {
-          return `<b>${line.replace('#### ', '')}</b>`
+          return `<b>${cleanHeading(line.replace('#### ', ''))}</b>`
         } else {
           let processedLine = line.replace(
             /\[([^\]]+)\]\(([^)]+)\)/g,
@@ -82,15 +86,29 @@ async function sendTelegramNotification() {
       .replace(/<br\s*\/?>/g, '\n')
   }
 
+  function sanitizeTelegramHTML(content) {
+    const allowedTag =
+      /^<\/?(?:b|strong|i|em|u|ins|s|strike|del|a|code|pre|blockquote|tg-spoiler|tg-emoji)(?:\s[^<>]*)?>$/i
+    // Match tags or lone brackets separately so stray changelog text cannot swallow a real tag.
+    return content.replace(/<\/?[a-z][^<>]*>|[<>]/gi, (token) => {
+      if (token === '<') return '&lt;'
+      if (token === '>') return '&gt;'
+      return allowedTag.test(token)
+        ? token
+        : token.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    })
+  }
+
   releaseContent = normalizeDetailsTags(releaseContent)
-  const formattedContent = convertMarkdownToTelegramHTML(releaseContent)
+  const formattedContent = sanitizeTelegramHTML(
+    convertMarkdownToTelegramHTML(releaseContent),
+  )
 
   const releaseTitle = isAutobuild ? '滚动更新版发布' : '正式发布'
   const encodedVersion = encodeURIComponent(version)
   const releaseTag = isAutobuild ? 'autobuild' : `v${version}`
-  const content = `<b>🎉 <a href="https://github.com/fqfqgo/clash-verge-rev/releases/tag/${releaseTag}">Clash Verge for v2free v${version}</a> ${releaseTitle}</b>\n\n${formattedContent}`
+  const content = `<b>🎉 <a href="https://github.com/clash-verge-rev/clash-verge-rev/releases/tag/${releaseTag}">Clash Verge Rev v${version}</a> ${releaseTitle}</b>\n\n${formattedContent}`
 
-  // 发送到 Telegram
   try {
     await axios.post(
       `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -99,7 +117,7 @@ async function sendTelegramNotification() {
         text: content,
         link_preview_options: {
           is_disabled: false,
-          url: `https://github.com/fqfqgo/clash-verge-rev/releases/tag/v${encodedVersion}`,
+          url: `https://github.com/clash-verge-rev/clash-verge-rev/releases/tag/v${encodedVersion}`,
           prefer_large_media: true,
         },
         parse_mode: 'HTML',
@@ -116,7 +134,6 @@ async function sendTelegramNotification() {
   }
 }
 
-// 执行函数
 sendTelegramNotification().catch((error) => {
   log_error('脚本执行失败:', error)
   process.exit(1)

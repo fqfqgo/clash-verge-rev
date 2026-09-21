@@ -4,11 +4,12 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useClash } from '@/hooks/use-clash'
+import { useDisplayedMixedPort } from '@/hooks/use-displayed-mixed-port'
+import { useAppUptime } from '@/hooks/use-system-state'
 import {
   useClashConfigData,
   useRulesData,
   useSystemData,
-  useUptimeData,
 } from '@/providers/app-data-context'
 
 import { EnhancedCard } from './enhanced-card'
@@ -25,8 +26,9 @@ export const ClashInfoCard = () => {
   const { t } = useTranslation()
   const { version: clashVersion } = useClash()
   const { clashConfig } = useClashConfigData()
+  const displayedMixedPort = useDisplayedMixedPort()
   const { rules } = useRulesData()
-  const { uptime } = useUptimeData()
+  const uptime = useAppUptime()
   const { systemProxyAddress } = useSystemData()
 
   // 使用useMemo缓存格式化后的uptime，避免频繁计算
@@ -61,7 +63,7 @@ export const ClashInfoCard = () => {
             {t('home.components.clashInfo.fields.mixedPort')}
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-            {clashConfig.mixedPort || '-'}
+            {displayedMixedPort}
           </Typography>
         </Stack>
         <Divider />
@@ -87,6 +89,7 @@ export const ClashInfoCard = () => {
   }, [
     clashConfig,
     clashVersion,
+    displayedMixedPort,
     t,
     formattedUptime,
     rules.length,

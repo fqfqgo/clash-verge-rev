@@ -1,5 +1,5 @@
 /**
- * CLI tool to update version numbers in package.json, src-tauri/Cargo.toml, and src-tauri/tauri.conf.json.
+ * CLI tool to update version numbers in package.json, src-tauri/Cargo.toml, Cargo.lock, and src-tauri/tauri.conf.json.
  *
  * Usage:
  *   pnpm release-version <version>
@@ -20,13 +20,6 @@
  *   pnpm release-version autobuild-latest
  *   pnpm release-version deploytest
  *
- * The script will:
- *   - Validate and normalize the version argument
- *   - Update the version field in package.json
- *   - Update the version field in src-tauri/Cargo.toml
- *   - Update the version field in src-tauri/tauri.conf.json
- *
- * Errors are logged and the process exits with code 1 on failure.
  */
 
 import { execSync } from 'child_process'
@@ -35,10 +28,6 @@ import path from 'path'
 
 import { program } from 'commander'
 
-/**
- * 获取当前 git 短 commit hash
- * @returns {string}
- */
 function getGitShortCommit() {
   try {
     return execSync('git rev-parse --short HEAD').toString().trim()
@@ -48,10 +37,6 @@ function getGitShortCommit() {
   }
 }
 
-/**
- * 获取最新 Tauri 相关提交的短 hash
- * @returns {string}
- */
 function getLatestTauriCommit() {
   try {
     const fullHash = execSync(
@@ -73,13 +58,7 @@ function getLatestTauriCommit() {
   }
 }
 
-/**
- * 生成短时间戳（格式：MMDD）或带 commit（格式：MMDD.cc39b27）
- * 使用 Asia/Shanghai 时区
- * @param {boolean} withCommit 是否带 commit
- * @param {boolean} useTauriCommit 是否使用 Tauri 相关的 commit（仅当 withCommit 为 true 时有效）
- * @returns {string}
- */
+/** Generates `MMDD`, optionally followed by a commit, in the Asia/Shanghai timezone. */
 function generateShortTimestamp(withCommit = false, useTauriCommit = false) {
   const now = new Date()
 
@@ -102,41 +81,22 @@ function generateShortTimestamp(withCommit = false, useTauriCommit = false) {
   return `${month}${day}`
 }
 
-/**
- * 验证版本号格式
- * @param {string} version
- * @returns {boolean}
- */
 function isValidVersion(version) {
   return /^v?\d+\.\d+\.\d+(-(alpha|beta|rc)(\.\d+)?)?(\+[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*)?$/i.test(
     version,
   )
 }
 
-/**
- * 标准化版本号
- * @param {string} version
- * @returns {string}
- */
 function normalizeVersion(version) {
   return version.startsWith('v') ? version : `v${version}`
 }
 
-/**
- * 提取基础版本号（去掉所有 -tag 和 +build 部分）
- * @param {string} version
- * @returns {string}
- */
 function getBaseVersion(version) {
   let base = version.replace(/-(alpha|beta|rc)(\.\d+)?/i, '')
   base = base.replace(/\+[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*/g, '')
   return base
 }
 
-/**
- * 更新 package.json 版本号
- * @param {string} newVersion
- */
 async function updatePackageVersion(newVersion) {
   const _dirname = process.cwd()
   const packageJsonPath = path.join(_dirname, 'package.json')
@@ -148,27 +108,26 @@ async function updatePackageVersion(newVersion) {
       '[INFO]: Current package.json version is: ',
       packageJson.version,
     )
-    packageJson.version = newVersion.startsWith('v')
+    const versionWithoutV = newVersion.startsWith('v')
       ? newVersion.slice(1)
       : newVersion
-    await fs.writeFile(
-      packageJsonPath,
-      JSON.stringify(packageJson, null, 2),
-      'utf8',
+    const updatedData = data.replace(
+      /^(\s*"version"\s*:\s*)"[^"]+"/m,
+      `$1"${versionWithoutV}"`,
     )
-    console.log(
-      `[INFO]: package.json version updated to: ${packageJson.version}`,
-    )
+
+    if (updatedData === data) {
+      throw new Error('version field was not found in package.json')
+    }
+
+    await fs.writeFile(packageJsonPath, updatedData, 'utf8')
+    console.log(`[INFO]: package.json version updated to: ${versionWithoutV}`)
   } catch (error) {
     console.error('Error updating package.json version:', error)
     throw error
   }
 }
 
-/**
- * 更新 Cargo.toml 版本号
- * @param {string} newVersion
- */
 async function updateCargoVersion(newVersion) {
   const _dirname = process.cwd()
   const cargoTomlPath = path.join(_dirname, 'src-tauri', 'Cargo.toml')
@@ -197,10 +156,34 @@ async function updateCargoVersion(newVersion) {
   }
 }
 
-/**
- * 更新 tauri.conf.json 版本号
- * @param {string} newVersion
- */
+async function updateCargoLockVersion(newVersion) {
+  const _dirname = process.cwd()
+  const cargoLockPath = path.join(_dirname, 'Cargo.lock')
+  const versionWithoutV = newVersion.startsWith('v')
+    ? newVersion.slice(1)
+    : newVersion
+  const packageVersionPattern =
+    /(\[\[package\]\]\r?\nname = "clash-verge"\r?\nversion = )"[^"]+"/
+
+  try {
+    const data = await fs.readFile(cargoLockPath, 'utf8')
+    const updatedData = data.replace(
+      packageVersionPattern,
+      `$1"${versionWithoutV}"`,
+    )
+
+    if (updatedData === data) {
+      throw new Error('clash-verge package entry was not found in Cargo.lock')
+    }
+
+    await fs.writeFile(cargoLockPath, updatedData, 'utf8')
+    console.log(`[INFO]: Cargo.lock version updated to: ${versionWithoutV}`)
+  } catch (error) {
+    console.error('Error updating Cargo.lock version:', error)
+    throw error
+  }
+}
+
 async function updateTauriConfigVersion(newVersion) {
   const _dirname = process.cwd()
   const tauriConfigPath = path.join(_dirname, 'src-tauri', 'tauri.conf.json')
@@ -216,14 +199,16 @@ async function updateTauriConfigVersion(newVersion) {
       tauriConfig.version,
     )
 
-    // 使用完整版本信息，包含build metadata
-    tauriConfig.version = versionWithoutV
-
-    await fs.writeFile(
-      tauriConfigPath,
-      JSON.stringify(tauriConfig, null, 2),
-      'utf8',
+    const updatedData = data.replace(
+      /^(\s*"version"\s*:\s*)"[^"]+"/m,
+      `$1"${versionWithoutV}"`,
     )
+
+    if (updatedData === data) {
+      throw new Error('version field was not found in tauri.conf.json')
+    }
+
+    await fs.writeFile(tauriConfigPath, updatedData, 'utf8')
     console.log(
       `[INFO]: tauri.conf.json version updated to: ${versionWithoutV}`,
     )
@@ -233,9 +218,6 @@ async function updateTauriConfigVersion(newVersion) {
   }
 }
 
-/**
- * 获取当前版本号
- */
 async function getCurrentVersion() {
   const _dirname = process.cwd()
   const packageJsonPath = path.join(_dirname, 'package.json')
@@ -249,9 +231,6 @@ async function getCurrentVersion() {
   }
 }
 
-/**
- * 主函数
- */
 async function main(versionArg) {
   if (!versionArg) {
     console.error('Error: Version argument is required')
@@ -274,16 +253,11 @@ async function main(versionArg) {
       const baseVersion = getBaseVersion(currentVersion)
 
       if (versionArg.toLowerCase() === 'autobuild') {
-        // 格式: 2.3.0+autobuild.1004.cc39b27
-        // 使用 Tauri 相关的最新 commit hash
         newVersion = `${baseVersion}+autobuild.${generateShortTimestamp(true, true)}`
       } else if (versionArg.toLowerCase() === 'autobuild-latest') {
-        // 格式: 2.3.0+autobuild.1004.a1b2c3d (使用最新 Tauri 提交)
         const latestTauriCommit = getLatestTauriCommit()
         newVersion = `${baseVersion}+autobuild.${generateShortTimestamp()}.${latestTauriCommit}`
       } else if (versionArg.toLowerCase() === 'deploytest') {
-        // 格式: 2.3.0+deploytest.1004.cc39b27
-        // 使用 Tauri 相关的最新 commit hash
         newVersion = `${baseVersion}+deploytest.${generateShortTimestamp(true, true)}`
       } else {
         newVersion = `${baseVersion}-${versionArg.toLowerCase()}`
@@ -299,6 +273,7 @@ async function main(versionArg) {
     console.log(`[INFO]: Updating versions to: ${newVersion}`)
     await updatePackageVersion(newVersion)
     await updateCargoVersion(newVersion)
+    await updateCargoLockVersion(newVersion)
     await updateTauriConfigVersion(newVersion)
     console.log('[SUCCESS]: All version updates completed successfully!')
   } catch (error) {

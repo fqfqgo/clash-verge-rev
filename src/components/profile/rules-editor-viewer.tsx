@@ -1,13 +1,4 @@
-import {
-  DndContext,
-  DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import { SortableContext, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
+import { arrayMove } from '@dnd-kit/helpers'
 import {
   VerticalAlignBottomRounded,
   VerticalAlignTopRounded,
@@ -27,7 +18,7 @@ import {
   styled,
 } from '@mui/material'
 import { useLockFn } from 'ahooks'
-import yaml from 'js-yaml'
+import * as yaml from 'js-yaml'
 import {
   startTransition,
   useCallback,
@@ -38,20 +29,23 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  BaseSearchBox,
-  MonacoEditor,
-  Switch,
-  VirtualList,
-} from '@/components/base'
+import { BaseSearchBox, MonacoEditor, Switch } from '@/components/base'
 import { RuleItem } from '@/components/profile/rule-item'
 import { readProfileFile, saveProfileFile } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
 import type { TranslationKey } from '@/types/generated/i18n-keys'
 import type { MonacoEditorInstance } from '@/types/monaco'
+import { MONACO_FONT_FAMILY } from '@/utils/font-family'
 import getSystem from '@/utils/get-system'
 import { isValidIpCidr } from '@/utils/network'
+import { parseYamlSafe } from '@/utils/yaml'
+
+import {
+  buildGroupedItems,
+  type GroupedVirtualItem,
+  GroupedVirtualList,
+} from './grouped-virtual-list'
 
 interface Props {
   groupsUid: string
@@ -251,6 +245,16 @@ const PROXY_POLICY_LABEL_KEYS: Record<string, TranslationKey> =
     {} as Record<string, TranslationKey>,
   )
 
+const findRealIndex = (
+  list: string[],
+  filtered: string[],
+  filteredIndex: number,
+): number => {
+  const item = filtered[filteredIndex]
+  if (item === undefined) return -1
+  return list.indexOf(item)
+}
+
 export const RulesEditorViewer = (props: Props) => {
   const { groupsUid, mergeUid, profileUid, property, open, onClose, onSave } =
     props
@@ -291,147 +295,133 @@ export const RulesEditorViewer = (props: Props) => {
     [appendSeq, match],
   )
 
-  const renderItem = (index: number): React.ReactNode => {
-    const shift = filteredPrependSeq.length > 0 ? 1 : 0
-    if (filteredPrependSeq.length > 0 && index === 0) {
-      return (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={onPrependDragEnd}
-        >
-          <SortableContext
-            items={filteredPrependSeq.map((x) => {
-              return x
-            })}
-          >
-            {filteredPrependSeq.map((item) => {
-              return (
-                <RuleItem
-                  key={item}
-                  type="prepend"
-                  ruleRaw={item}
-                  onDelete={() => {
-                    setPrependSeq(prependSeq.filter((v) => v !== item))
-                  }}
-                />
-              )
-            })}
-          </SortableContext>
-        </DndContext>
-      )
-    } else if (index < filteredRuleList.length + shift) {
-      const newIndex = index - shift
+  const items = useMemo(
+    () =>
+      buildGroupedItems(
+        filteredPrependSeq,
+        filteredRuleList,
+        filteredAppendSeq,
+        (rule) => rule,
+      ),
+    [filteredPrependSeq, filteredRuleList, filteredAppendSeq],
+  )
+
+  const renderItem = (entry: GroupedVirtualItem<string>) => {
+    const { category, item } = entry
+
+    if (category === 'original') {
+      const isDeleted = deleteSeq.includes(item)
       return (
         <RuleItem
-          key={filteredRuleList[newIndex]}
-          type={
-            deleteSeq.includes(filteredRuleList[newIndex])
-              ? 'delete'
-              : 'original'
-          }
-          ruleRaw={filteredRuleList[newIndex]}
+          type={isDeleted ? 'delete' : 'original'}
+          ruleRaw={item}
           onDelete={() => {
-            if (deleteSeq.includes(filteredRuleList[newIndex])) {
-              setDeleteSeq(
-                deleteSeq.filter((v) => v !== filteredRuleList[newIndex]),
-              )
+            if (isDeleted) {
+              setDeleteSeq(deleteSeq.filter((v) => v !== item))
             } else {
-              setDeleteSeq((prev) => [...prev, filteredRuleList[newIndex]])
+              setDeleteSeq((prev) => [...prev, item])
             }
           }}
         />
       )
-    } else {
+    }
+
+    if (category === 'prepend') {
       return (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={onAppendDragEnd}
-        >
-          <SortableContext
-            items={filteredAppendSeq.map((x) => {
-              return x
-            })}
-          >
-            {filteredAppendSeq.map((item) => {
-              return (
-                <RuleItem
-                  key={item}
-                  type="append"
-                  ruleRaw={item}
-                  onDelete={() => {
-                    setAppendSeq(appendSeq.filter((v) => v !== item))
-                  }}
-                />
-              )
-            })}
-          </SortableContext>
-        </DndContext>
+        <RuleItem
+          type="prepend"
+          ruleRaw={item}
+          onDelete={() => {
+            setPrependSeq(prependSeq.filter((v) => v !== item))
+          }}
+          onAppend={() => {
+            setAppendSeq((prev) =>
+              prev.includes(item) ? prev : [...prev, item],
+            )
+            setPrependSeq(prependSeq.filter((v) => v !== item))
+          }}
+        />
       )
     }
+
+    return (
+      <RuleItem
+        type="append"
+        ruleRaw={item}
+        onDelete={() => {
+          setAppendSeq(appendSeq.filter((v) => v !== item))
+        }}
+        onPrepend={() => {
+          setPrependSeq((prev) =>
+            prev.includes(item) ? prev : [...prev, item],
+          )
+          setAppendSeq(appendSeq.filter((v) => v !== item))
+        }}
+      />
+    )
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  )
-  const reorder = (list: string[], startIndex: number, endIndex: number) => {
-    const result = Array.from(list)
-    const [removed] = result.splice(startIndex, 1)
-    result.splice(endIndex, 0, removed)
-    return result
-  }
-  const onPrependDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    if (over) {
-      if (active.id !== over.id) {
-        const activeIndex = prependSeq.indexOf(active.id.toString())
-        const overIndex = prependSeq.indexOf(over.id.toString())
-        setPrependSeq(reorder(prependSeq, activeIndex, overIndex))
-      }
+  const onReorder = (
+    category: 'prepend' | 'append',
+    activeIndex: number,
+    overIndex: number,
+  ) => {
+    const list = category === 'prepend' ? prependSeq : appendSeq
+    const filtered =
+      category === 'prepend' ? filteredPrependSeq : filteredAppendSeq
+    const setList = category === 'prepend' ? setPrependSeq : setAppendSeq
+    const activeRealIndex = findRealIndex(list, filtered, activeIndex)
+    const overRealIndex = findRealIndex(list, filtered, overIndex)
+    if (
+      activeRealIndex < 0 ||
+      overRealIndex < 0 ||
+      activeRealIndex === overRealIndex
+    ) {
+      return
     }
+
+    setList(arrayMove(list, activeRealIndex, overRealIndex))
   }
-  const onAppendDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    if (over) {
-      if (active.id !== over.id) {
-        const activeIndex = appendSeq.indexOf(active.id.toString())
-        const overIndex = appendSeq.indexOf(over.id.toString())
-        setAppendSeq(reorder(appendSeq, activeIndex, overIndex))
-      }
-    }
-  }
+
   const fetchContent = useCallback(async () => {
     hasLoadedSeqConfigRef.current = false
     const data = await readProfileFile(property)
-    const obj = yaml.load(data) as ISeqProfileConfig | null
+    const obj = parseYamlSafe(data) as ISeqProfileConfig | null | undefined
+
+    setPrevData(data)
+    setCurrData(data)
+
+    if (obj === undefined) {
+      setVisualization(false)
+      return
+    }
 
     setPrependSeq(obj?.prepend || [])
     setAppendSeq(obj?.append || [])
     setDeleteSeq(obj?.delete || [])
-
-    setPrevData(data)
-    setCurrData(data)
     hasLoadedSeqConfigRef.current = true
   }, [property])
 
-  useEffect(() => {
-    if (currData === '' || visualization !== true) {
+  const handleVisualizationToggle = () => {
+    if (visualization) {
+      setVisualization(false)
       return
     }
 
-    const obj = yaml.load(currData) as ISeqProfileConfig | null
+    const obj = parseYamlSafe(currData) as ISeqProfileConfig | null | undefined
+    if (obj === undefined) {
+      hasLoadedSeqConfigRef.current = false
+      return
+    }
+
+    hasLoadedSeqConfigRef.current = true
     startTransition(() => {
       setPrependSeq(obj?.prepend ?? [])
       setAppendSeq(obj?.append ?? [])
       setDeleteSeq(obj?.delete ?? [])
     })
-  }, [currData, visualization])
+    setVisualization(true)
+  }
 
   // 优化：异步处理大数据yaml.dump，避免UI卡死
   useEffect(() => {
@@ -482,13 +472,13 @@ export const RulesEditorViewer = (props: Props) => {
     const mergeData = await readProfileFile(mergeUid) // merge配置文件
     const globalMergeData = await readProfileFile('Merge') // global merge配置文件
 
-    const rulesObj = yaml.load(data) as { rules: [] } | null
+    const rulesObj = parseYamlSafe(data) as { rules: [] } | null
 
-    const originGroupsObj = yaml.load(data) as {
+    const originGroupsObj = parseYamlSafe(data) as {
       'proxy-groups': IProxyGroupConfig[]
     } | null
     const originGroups = originGroupsObj?.['proxy-groups'] || []
-    const moreGroupsObj = yaml.load(groupsData) as ISeqProfileConfig | null
+    const moreGroupsObj = parseYamlSafe(groupsData) as ISeqProfileConfig | null
     const rawPrependGroups = moreGroupsObj?.['prepend']
     const morePrependGroups = Array.isArray(rawPrependGroups)
       ? (rawPrependGroups as IProxyGroupConfig[])
@@ -514,29 +504,29 @@ export const RulesEditorViewer = (props: Props) => {
       moreAppendGroups,
     )
 
-    const originRuleSetObj = yaml.load(data) as {
+    const originRuleSetObj = parseYamlSafe(data) as {
       'rule-providers': Record<string, unknown>
     } | null
     const originRuleSet = originRuleSetObj?.['rule-providers'] || {}
-    const moreRuleSetObj = yaml.load(mergeData) as {
+    const moreRuleSetObj = parseYamlSafe(mergeData) as {
       'rule-providers': Record<string, unknown>
     } | null
     const moreRuleSet = moreRuleSetObj?.['rule-providers'] || {}
-    const globalRuleSetObj = yaml.load(globalMergeData) as {
+    const globalRuleSetObj = parseYamlSafe(globalMergeData) as {
       'rule-providers': Record<string, unknown>
     } | null
     const globalRuleSet = globalRuleSetObj?.['rule-providers'] || {}
     const ruleSet = Object.assign({}, originRuleSet, moreRuleSet, globalRuleSet)
 
-    const originSubRuleObj = yaml.load(data) as {
+    const originSubRuleObj = parseYamlSafe(data) as {
       'sub-rules': Record<string, unknown>
     } | null
     const originSubRule = originSubRuleObj?.['sub-rules'] || {}
-    const moreSubRuleObj = yaml.load(mergeData) as {
+    const moreSubRuleObj = parseYamlSafe(mergeData) as {
       'sub-rules': Record<string, unknown>
     } | null
     const moreSubRule = moreSubRuleObj?.['sub-rules'] || {}
-    const globalSubRuleObj = yaml.load(globalMergeData) as {
+    const globalSubRuleObj = parseYamlSafe(globalMergeData) as {
       'sub-rules': Record<string, unknown>
     } | null
     const globalSubRule = globalSubRuleObj?.['sub-rules'] || {}
@@ -609,9 +599,7 @@ export const RulesEditorViewer = (props: Props) => {
               <Button
                 variant="contained"
                 size="small"
-                onClick={() => {
-                  setVisualization((prev) => !prev)
-                }}
+                onClick={handleVisualizationToggle}
               >
                 {visualization
                   ? t('shared.editorModes.advanced')
@@ -782,14 +770,10 @@ export const RulesEditorViewer = (props: Props) => {
               }}
             >
               <BaseSearchBox onSearch={(match) => setMatch(() => match)} />
-              <VirtualList
-                count={
-                  filteredRuleList.length +
-                  (filteredPrependSeq.length > 0 ? 1 : 0) +
-                  (filteredAppendSeq.length > 0 ? 1 : 0)
-                }
-                estimateSize={56}
+              <GroupedVirtualList
+                items={items}
                 renderItem={renderItem}
+                onReorder={onReorder}
                 style={{ height: 'calc(100% - 24px)', marginTop: '8px' }}
               />
             </List>
@@ -817,9 +801,7 @@ export const RulesEditorViewer = (props: Props) => {
               padding: {
                 top: 33, // 顶部padding防止遮挡snippets
               },
-              fontFamily: `Fira Code, JetBrains Mono, Roboto Mono, "Source Code Pro", Consolas, Menlo, Monaco, monospace, "Courier New", "Apple Color Emoji"${
-                getSystem() === 'windows' ? ', twemoji mozilla' : ''
-              }`,
+              fontFamily: MONACO_FONT_FAMILY,
               fontLigatures: false, // 连字符
               smoothScrolling: true, // 平滑滚动
             }}

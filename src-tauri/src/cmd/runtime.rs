@@ -4,37 +4,13 @@ use anyhow::{Context as _, anyhow};
 use clash_verge_logging::{Type, logging};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-/// 获取运行时配置
 #[tauri::command]
 pub async fn get_runtime_config() -> CmdResult<Option<Mapping>> {
     Ok(Config::runtime().await.latest_arc().config.clone())
 }
 
-/// 获取运行时代理组顺序
-#[tauri::command]
-pub async fn get_runtime_proxy_group_order() -> CmdResult<Vec<String>> {
-    let runtime = Config::runtime().await;
-    let runtime = runtime.latest_arc();
-
-    Ok(runtime
-        .config
-        .as_ref()
-        .and_then(|config| config.get("proxy-groups"))
-        .and_then(|groups| groups.as_sequence())
-        .map(|groups| {
-            groups
-                .iter()
-                .filter_map(|group| group.get("name"))
-                .filter_map(|name| name.as_str())
-                .map(String::from)
-                .collect()
-        })
-        .unwrap_or_default())
-}
-
-/// 获取运行时YAML配置
 #[tauri::command]
 pub async fn get_runtime_yaml() -> CmdResult<String> {
     let runtime = Config::runtime().await;
@@ -51,13 +27,6 @@ pub async fn get_runtime_yaml() -> CmdResult<String> {
         .stringify_err()
 }
 
-/// 获取运行时存在的键
-#[tauri::command]
-pub async fn get_runtime_exists() -> CmdResult<HashSet<String>> {
-    Ok(Config::runtime().await.latest_arc().exists_keys.clone())
-}
-
-/// 获取运行时日志
 #[tauri::command]
 pub async fn get_runtime_logs() -> CmdResult<HashMap<String, Vec<(String, String)>>> {
     Ok(Config::runtime().await.latest_arc().chain_logs.clone())
@@ -94,7 +63,6 @@ pub async fn get_runtime_proxy_chain_config(proxy_chain_exit_node: String) -> Cm
             .find(|proxy| proxy.get("name").map(|x| x.as_str()) == proxy_name)
             && !proxies_chain.is_empty()
         {
-            // 添加第一个节点
             proxies_chain.push(entry_proxy.to_owned());
         }
 
@@ -113,7 +81,6 @@ pub async fn get_runtime_proxy_chain_config(proxy_chain_exit_node: String) -> Cm
     }
 }
 
-/// 更新运行时链式代理配置
 #[tauri::command]
 pub async fn update_proxy_chain_config_in_runtime(proxy_chain_config: Option<serde_yaml_ng::Value>) -> CmdResult<()> {
     match CoreManager::global()
@@ -127,7 +94,7 @@ pub async fn update_proxy_chain_config_in_runtime(proxy_chain_config: Option<ser
             "Failed to apply runtime proxy chain config: {}",
             outcome
         ),
-        Err(err) => logging!(error, Type::Core, "Failed to apply runtime proxy chain config: {}", err),
+        Err(err) => logging!(error, Type::Core, "Failed to apply runtime proxy chain config: {err:#}"),
     }
 
     Ok(())

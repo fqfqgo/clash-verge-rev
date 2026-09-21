@@ -68,35 +68,24 @@ export const TestViewer = forwardRef<TestViewerRef, Props>(
       formIns.handleSubmit(async (form) => {
         setLoading(true)
         try {
-          if (!form.name) throw new Error('`Name` should not be null')
-          if (!form.url) throw new Error('`Url` should not be null')
-
-          let newList
-          let uid
-
-          if (form.icon && form.icon.startsWith('<svg')) {
-            // 移除 icon 中的注释
-            if (form.icon) {
-              form.icon = form.icon.replace(/<!--[\s\S]*?-->/g, '')
-            }
-            const doc = new DOMParser().parseFromString(
-              form.icon,
-              'image/svg+xml',
-            )
-            if (doc.querySelector('parsererror')) {
-              throw new Error('`Icon`svg format error')
-            }
+          if (!form.name) {
+            throw new Error(t('tests.modals.test.errors.nameRequired'))
+          }
+          if (!form.url) {
+            throw new Error(t('tests.modals.test.errors.urlRequired'))
           }
 
           if (openType === 'new') {
-            uid = nanoid()
+            const uid = nanoid()
             const item = { ...form, uid }
-            newList = [...testList, item]
+            const newList = [...testList, item]
             await patchVerge({ test_list: newList })
             onChange(uid)
           } else {
-            if (!form.uid) throw new Error('UID not found')
-            uid = form.uid
+            if (!form.uid) {
+              throw new Error(t('tests.modals.test.errors.uidMissing'))
+            }
+            const uid = form.uid
 
             await patchTestList(uid, form)
             onChange(uid, form)
@@ -105,7 +94,7 @@ export const TestViewer = forwardRef<TestViewerRef, Props>(
           setLoading(false)
           setTimeout(() => formIns.reset(), 500)
         } catch (err: any) {
-          showNotice.error(err)
+          showNotice.error('tests.modals.test.errors.saveFailed', err)
           setLoading(false)
         }
       }),

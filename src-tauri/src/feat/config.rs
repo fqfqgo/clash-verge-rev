@@ -1,20 +1,14 @@
 use crate::{
     config::{Config, IVerge},
-    core::{
-        CoreManager, autostart, handle, hotkey,
-        logger::Logger,
-        service::{self, SERVICE_MANAGER, ServiceStatus},
-        sysopt, tray,
-    },
+    core::{CoreManager, autostart, handle, hotkey, logger, proxy_control, tray},
     module::{auto_backup::AutoBackupManager, lightweight},
 };
 use anyhow::Result;
 use bitflags::bitflags;
-use clash_verge_draft::SharedDraft;
+use clash_verge_draft::{DraftTransaction, SharedDraft};
 use clash_verge_logging::{Type, logging, logging_error};
 use serde_yaml_ng::Mapping;
-use std::fmt;
-use tauri_plugin_clash_verge_sysinfo::is_current_app_handle_admin;
+use tokio::sync::MutexGuard;
 
 /// Patch Clash configuration
 pub async fn patch_clash(patch: &Mapping) -> Result<()> {
@@ -31,7 +25,6 @@ pub async fn patch_clash(patch: &Mapping) -> Result<()> {
             if patch.get("mode").is_some() {
                 tray::Tray::global().update_menu_and_icon().await;
             }
-            Config::runtime().await.edit_draft(|d| d.patch_config(patch));
             CoreManager::global().update_config_checked().await?;
         }
         handle::Handle::refresh_clash();
@@ -218,9 +211,6 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         CoreManager::global().update_config_checked().await?;
         handle::Handle::refresh_clash();
     }
-    if update_flags.contains(UpdateFlags::VERGE_CONFIG) {
-        handle::Handle::refresh_verge();
-    }
     if update_flags.contains(UpdateFlags::LAUNCH) {
         autostart::update_launch().await?;
     }
@@ -230,11 +220,20 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         clash_verge_i18n::set_locale(language.as_str());
     }
     if update_flags.contains(UpdateFlags::SYS_PROXY) {
-        sysopt::Sysopt::global()
-            .update_sysproxy()
+        let manager = CoreManager::global();
+        let _lifecycle = manager.lifecycle_lock.lock().await;
+        // Turning it off only writes OS state, so it must stay available while the Core is down.
+        if Config::verge()
             .await
-            .map_err(SystemProxyApplyError)?;
-        sysopt::Sysopt::global().refresh_guard().await;
+            .latest_arc()
+            .enable_system_proxy
+            .unwrap_or_default()
+        {
+            manager.apply_proxy_after_start().await?;
+        } else {
+            proxy_control::apply().await?;
+            proxy_control::refresh_guard().await?;
+        }
     }
     if update_flags.contains(UpdateFlags::HOTKEY)
         && let Some(hotkeys) = &patch.hotkeys
@@ -267,173 +266,63 @@ async fn process_terminated_flags(update_flags: UpdateFlags, patch: &IVerge) -> 
         }
     }
     if update_flags.contains(UpdateFlags::LOG_LEVEL) {
-        Logger::global().update_log_level(patch.get_log_level())?;
+        logger::Logger::global().update_log_level(patch.get_log_level())?;
     }
     if update_flags.contains(UpdateFlags::LOG_FILE) {
         let log_max_size = patch.app_log_max_size.unwrap_or(128);
         let log_max_count = patch.app_log_max_count.unwrap_or(8);
-        Logger::global().update_log_config(log_max_size, log_max_count).await?;
+        logger::update_log_config(log_max_size, log_max_count).await?;
     }
     Ok(())
 }
 
-#[derive(Debug)]
-struct SystemProxyApplyError(anyhow::Error);
-
-impl fmt::Display for SystemProxyApplyError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Failed to apply system proxy: {}", self.0)
-    }
-}
-
-impl std::error::Error for SystemProxyApplyError {}
-
-async fn ensure_tun_available() -> Result<bool> {
-    if is_current_app_handle_admin(handle::Handle::app_handle()) {
-        return Ok(false);
-    }
-    if service::is_service_available().await.is_ok() {
-        // Service is installed and reachable — use it as-is. Do NOT call
-        // refresh() here: a version mismatch would auto-trigger a reinstall
-        // (uninstall + install), popping a confusing "uninstall service" admin
-        // prompt when the user only enabled the system proxy / TUN. A real
-        // version upgrade is left to the explicit repair action in settings.
-        SERVICE_MANAGER.init().await?;
-        return Ok(true);
-    }
-
-    SERVICE_MANAGER
-        .handle_service_status(ServiceStatus::InstallRequired)
-        .await?;
-    Ok(true)
-}
-
-async fn disable_system_proxy_for_fallback() -> Result<()> {
-    if Box::pin(patch_verge(
-        &IVerge {
-            enable_system_proxy: Some(false),
-            ..IVerge::default()
-        },
-        false,
-    ))
-    .await
-    .is_ok()
-    {
-        return Ok(());
-    }
-
-    // The OS may reject both enabling and clearing its proxy. Keep the saved
-    // state honest so service-install failures cannot leave a false "on".
-    let verge = Config::verge().await;
-    verge.edit_draft(|d| d.enable_system_proxy = Some(false));
-    verge.apply();
-    let verge = verge.latest_arc();
-    verge.save_file().await?;
-    handle::Handle::refresh_verge();
-    sysopt::Sysopt::global().refresh_guard().await;
-    tray::Tray::global().update_menu_and_icon().await;
-    Ok(())
-}
-
-async fn enable_tun_fallback() -> Result<()> {
-    disable_system_proxy_for_fallback().await?;
-    Box::pin(patch_verge(
-        &IVerge {
-            enable_tun_mode: Some(true),
-            ..IVerge::default()
-        },
-        false,
-    ))
-    .await?;
-    show_system_proxy_dialog(
-        clash_verge_i18n::t!("systemProxy.fallbackTun.title").into_owned(),
-        clash_verge_i18n::t!("systemProxy.fallbackTun.body").into_owned(),
-    );
-    Ok(())
-}
-
-/// Native modal dialog for system-proxy problems. Works even at startup with no
-/// window shown, so both manual and auto (startup restore) paths are unified.
-fn show_system_proxy_dialog(title: String, body: String) {
-    use tauri_plugin_dialog::{DialogExt as _, MessageDialogKind};
-    handle::Handle::app_handle()
-        .dialog()
-        .message(body)
-        .title(title)
-        .kind(MessageDialogKind::Warning)
-        .show(|_| {});
-}
-
-pub async fn ensure_system_proxy_or_fallback() -> Result<()> {
-    if !Config::verge().await.latest_arc().enable_system_proxy.unwrap_or(false) {
-        return Ok(());
-    }
-
-    // WinINET → registry sync can lag briefly after InternetSetOptionW.
-    for _ in 0..3 {
-        match sysopt::Sysopt::global().is_system_proxy_applied().await {
-            Ok(true) => return Ok(()),
-            Ok(false) => tokio::time::sleep(std::time::Duration::from_millis(200)).await,
-            Err(err) => {
-                logging!(warn, Type::ProxyMode, "Unable to verify system proxy: {err}");
-                show_system_proxy_dialog(
-                    clash_verge_i18n::t!("systemProxy.verificationError.title").into_owned(),
-                    clash_verge_i18n::t!("systemProxy.verificationError.body").into_owned(),
-                );
-                return Ok(());
-            }
-        }
-    }
-
-    logging!(
-        warn,
-        Type::ProxyMode,
-        "System proxy was not applied; enabling TUN fallback"
-    );
-    enable_tun_fallback().await
-}
-
+/// Apply a patch, then reconcile TUN when its setting changes.
+///
+/// TUN patches do not always produce a Run State transition, so reconciliation is explicit.
 pub async fn patch_verge(patch: &IVerge, not_save_file: bool) -> Result<()> {
-    let service_installed_for_tun = if patch.enable_tun_mode == Some(true) {
-        ensure_tun_available().await?
-    } else {
-        false
-    };
-    Config::verge().await.edit_draft(|d| d.patch_config(patch));
+    apply_verge_patch(patch, not_save_file).await?;
+    if patch.enable_tun_mode.is_some() {
+        super::reconcile_tun_availability().await;
+    }
+    Ok(())
+}
+
+/// Apply a patch without post-update reconciliation.
+pub(super) async fn apply_verge_patch(patch: &IVerge, not_save_file: bool) -> Result<()> {
+    let config_write = Config::lock_config_write().await;
+    apply_verge_patch_locked(&config_write, patch, not_save_file).await
+}
+
+/// Apply a patch with the shared configuration write lock already held.
+/// Callers must pass the guard returned by [`Config::lock_config_write`].
+pub(super) async fn apply_verge_patch_locked(
+    _config_write: &MutexGuard<'_, ()>,
+    patch: &IVerge,
+    not_save_file: bool,
+) -> Result<()> {
+    let verge = Config::verge().await;
+    // Hold the claim across side effects so concurrent transactions cannot share this draft.
+    let transaction = DraftTransaction::begin(vec![&verge])?;
+    verge.edit_draft(|d| d.patch_config(patch));
 
     let update_flags = determine_update_flags(patch);
     logging!(debug, Type::Setup, "Determined update flags: {:?}", update_flags);
-    let process_flag_result = process_terminated_flags(update_flags, patch).await;
+    // A failed patch rolls back to what the user already had; it never invents a value for them.
+    process_terminated_flags(update_flags, patch).await?;
+    transaction.commit();
+    announce_verge_change();
 
-    if let Err(err) = process_flag_result {
-        Config::verge().await.discard();
-        if patch.enable_system_proxy == Some(true) && err.downcast_ref::<SystemProxyApplyError>().is_some() {
-            logging!(
-                warn,
-                Type::ProxyMode,
-                "Failed to apply system proxy; enabling TUN fallback: {err}"
-            );
-            return enable_tun_fallback().await;
-        }
-        return Err(err);
-    }
-    Config::verge().await.apply();
     logging_error!(Type::Backup, AutoBackupManager::global().refresh_settings().await);
     if !not_save_file {
         // 分离数据获取和异步调用
-        let verge_data = Config::verge().await.data_arc();
-        logging!(debug, Type::Setup, "Saving Verge configuration to file...");
+        let verge_data = verge.data_arc();
         verge_data.save_file().await?;
     }
-    if service_installed_for_tun {
-        CoreManager::global().restart_core().await?;
-    }
-
-    if patch.enable_system_proxy == Some(true) {
-        ensure_system_proxy_or_fallback().await?;
-    }
-
     Ok(())
+}
+
+fn announce_verge_change() {
+    handle::Handle::refresh_verge();
 }
 
 pub async fn fetch_verge_config() -> Result<SharedDraft<IVerge>> {

@@ -1,3 +1,7 @@
+import {
+  takeDnsOverrideNotice,
+  takeServiceFallbackNotice,
+} from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 
 type NavigateFunction = (path: string, options?: any) => void
@@ -24,6 +28,51 @@ export const handleNoticeMessage = (
       showNotice.error(msg)
     },
     'set_config::error': () => showNotice.error(msg),
+    'service_core::sidecar_fallback': () => {
+      void takeServiceFallbackNotice()
+        .then((pending) => {
+          if (pending) {
+            showNotice.warning(
+              'settings.feedback.notifications.clashService.sidecarFallback',
+            )
+          }
+        })
+        .catch((error) => {
+          console.error(
+            'Failed to read the pending service fallback notice',
+            error,
+          )
+        })
+    },
+    'dns_override::auto_disabled': () => {
+      void takeDnsOverrideNotice()
+        .then((pending) => {
+          if (pending) {
+            showNotice.info('settings.modals.dns.protection.autoDisabled')
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to read the pending DNS override notice', error)
+        })
+    },
+    'tun_mode::auto_disabled': () =>
+      showNotice.info(
+        'settings.sections.system.notifications.tunMode.autoDisabled',
+      ),
+    'tun_mode::auto_disable_failed': () =>
+      showNotice.error(
+        'settings.sections.system.notifications.tunMode.autoDisableFailed',
+      ),
+    'app_restart::core_stop_failed': () =>
+      showNotice.error(
+        'layout.feedback.errors.restartCoreStopFailed',
+        msg || undefined,
+      ),
+    'app_quit::core_stop_failed': () =>
+      showNotice.error(
+        'layout.feedback.errors.quitCoreStopFailed',
+        msg || undefined,
+      ),
     update_with_clash_proxy: () =>
       showNotice.success(
         'settings.feedback.notifications.updater.withClashProxySuccess',
@@ -84,6 +133,18 @@ export const handleNoticeMessage = (
       showNotice.error(
         'settings.feedback.notifications.clash.changeFailed',
         msg,
+      ),
+    'mixed_port::fallback': () => {
+      const [oldPort, newPort] = msg.split(',')
+      showNotice.info('settings.modals.clashPort.messages.automaticFallback', {
+        oldPort,
+        newPort,
+      })
+    },
+    'mixed_port::fallback_error': () =>
+      showNotice.error(
+        'settings.modals.clashPort.messages.automaticFallbackFailed',
+        { error: msg },
       ),
   }
 

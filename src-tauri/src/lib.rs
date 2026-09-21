@@ -24,7 +24,6 @@ use tauri::{AppHandle, Manager as _};
 #[cfg(target_os = "macos")]
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_deep_link::DeepLinkExt as _;
-use tauri_plugin_mihomo::RejectPolicy;
 
 pub static APP_HANDLE: OnceCell<AppHandle> = OnceCell::new();
 /// Application initialization helper functions
@@ -32,11 +31,10 @@ mod app_init {
     use super::*;
 
     /// Initialize singleton monitoring for other instances
-    pub fn init_singleton_check() -> Result<()> {
+    pub fn init_singleton_check() -> Result<server::SingletonDisposition> {
         AsyncHandler::block_on(async move {
-            logging!(info, Type::Setup, "开始检查单例实例...");
-            server::check_singleton().await?;
-            Ok(())
+            logging!(debug, Type::Setup, "开始检查单例实例...");
+            server::check_singleton().await
         })
     }
 
@@ -53,21 +51,13 @@ mod app_init {
             .plugin(tauri_plugin_fs::init())
             .plugin(tauri_plugin_dialog::init())
             .plugin(tauri_plugin_shell::init())
+            .plugin(tauri_plugin_opener::init())
             .plugin(tauri_plugin_deep_link::init())
             .plugin(tauri_plugin_http::init())
             .plugin(
                 tauri_plugin_mihomo::Builder::new()
                     .protocol(tauri_plugin_mihomo::models::Protocol::LocalSocket)
                     .socket_path(crate::config::IClashTemp::guard_external_controller_ipc())
-                    .pool_config(
-                        tauri_plugin_mihomo::IpcPoolConfigBuilder::new()
-                            .min_connections(3)
-                            .max_connections(32)
-                            .idle_timeout(std::time::Duration::from_secs(60))
-                            .health_check_interval(std::time::Duration::from_secs(60))
-                            .reject_policy(RejectPolicy::Wait)
-                            .build(),
-                    )
                     .build(),
             );
 
@@ -84,17 +74,15 @@ mod app_init {
     pub fn setup_deep_links(app: &tauri::App) {
         #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
         {
-            logging!(info, Type::Setup, "注册深层链接...");
+            logging!(debug, Type::Setup, "注册深层链接...");
             let _ = app.deep_link().register_all();
         }
 
         app.deep_link().on_open_url(|event| {
             let urls = event.urls();
             AsyncHandler::spawn(move || async move {
-                if let Some(url) = urls.first()
-                    && let Err(e) = resolve::resolve_scheme(url.as_ref()).await
-                {
-                    logging!(error, Type::Setup, "Failed to resolve scheme: {}", e);
+                if let Some(url) = urls.first() {
+                    resolve::resolve_scheme(url.as_ref()).await;
                 }
             });
         });
@@ -119,7 +107,7 @@ mod app_init {
 
     /// Setup window state management
     pub fn setup_window_state(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-        logging!(info, Type::Setup, "初始化窗口状态管理...");
+        logging!(debug, Type::Setup, "初始化窗口状态管理...");
         let window_state_plugin = tauri_plugin_window_state::Builder::new()
             .with_filename(files::WINDOW_STATE)
             .with_state_flags(tauri_plugin_window_state::StateFlags::default())
@@ -132,50 +120,50 @@ mod app_init {
         tauri::generate_handler![
             tauri_plugin_clash_verge_sysinfo::commands::get_system_info,
             tauri_plugin_clash_verge_sysinfo::commands::get_app_uptime,
-            tauri_plugin_clash_verge_sysinfo::commands::app_is_admin,
             tauri_plugin_clash_verge_sysinfo::commands::export_diagnostic_info,
-            cmd::is_port_in_use,
+            cmd::probe_listener,
+            cmd::save_proxy_ports,
             cmd::get_sys_proxy,
             cmd::get_auto_proxy,
+            cmd::get_embedded_server_port,
             cmd::open_app_dir,
             cmd::open_logs_dir,
-            cmd::open_web_url,
-            cmd::launch_browser_with_proxy,
             cmd::open_core_dir,
-            cmd::get_portable_flag,
             cmd::get_network_interfaces,
             cmd::get_system_hostname,
             cmd::restart_app,
-            cmd::start_core,
-            cmd::stop_core,
             cmd::restart_core,
-            cmd::get_running_mode,
-            cmd::get_auto_launch_status,
+            cmd::upgrade_clash_core,
+            cmd::get_runtime_state,
+            cmd::get_pending_failures,
             cmd::entry_lightweight_mode,
-            cmd::exit_lightweight_mode,
             cmd::install_service,
             cmd::uninstall_service,
             cmd::reinstall_service,
             cmd::repair_service,
-            cmd::is_service_available,
+            cmd::continue_with_sidecar,
+            cmd::sync_runtime_providers,
             cmd::get_clash_info,
             cmd::patch_clash_config,
             cmd::patch_clash_mode,
             cmd::get_clash_mode,
             cmd::change_clash_core,
             cmd::get_runtime_config,
-            cmd::get_runtime_proxy_group_order,
+            cmd::get_proxy_view,
             cmd::get_runtime_yaml,
-            cmd::get_runtime_exists,
             cmd::get_runtime_logs,
             cmd::get_runtime_proxy_chain_config,
             cmd::update_proxy_chain_config_in_runtime,
             cmd::invoke_uwp_tool,
             cmd::copy_clash_env,
             cmd::sync_tray_proxy_selection,
+            cmd::record_selected_node,
+            cmd::forget_selected_node,
             cmd::save_dns_config,
             cmd::apply_dns_config,
-            cmd::check_dns_config_exists,
+            cmd::set_dns_override,
+            cmd::take_dns_override_notice,
+            cmd::take_service_fallback_notice,
             cmd::get_dns_config_content,
             cmd::validate_dns_config,
             cmd::get_clash_logs,
@@ -187,9 +175,6 @@ mod app_init {
             cmd::download_icon_cache,
             cmd::open_devtools,
             cmd::exit_app,
-            cmd::prepare_for_update,
-            cmd::clear_prepare_for_update,
-            cmd::exit_for_update,
             cmd::get_network_interfaces_info,
             cmd::get_profiles,
             cmd::enhance_profiles,
@@ -204,8 +189,6 @@ mod app_init {
             cmd::read_profile_file,
             cmd::save_profile_file,
             cmd::get_next_update_time,
-            cmd::script_validate_notice,
-            cmd::validate_script_file,
             cmd::create_local_backup,
             cmd::list_local_backup,
             cmd::delete_local_backup,
@@ -219,27 +202,59 @@ mod app_init {
             cmd::restore_webdav_backup,
             cmd::get_unlock_items,
             cmd::check_media_unlock,
+            cmd::check_media_unlock_item,
         ]
     }
 }
 
-pub fn run() {
-    if app_init::init_singleton_check().is_err() {
-        return;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StartupAction {
+    Continue,
+    ExitSuccess,
+    ExitFailure,
+}
+
+fn handle_singleton_startup(
+    result: Result<server::SingletonDisposition>,
+    report_error: impl FnOnce(&anyhow::Error),
+) -> StartupAction {
+    match result {
+        Ok(server::SingletonDisposition::Primary) => StartupAction::Continue,
+        Ok(server::SingletonDisposition::Secondary) => StartupAction::ExitSuccess,
+        Err(error) => {
+            report_error(&error);
+            StartupAction::ExitFailure
+        }
+    }
+}
+
+pub fn run() -> std::process::ExitCode {
+    #[cfg(all(target_os = "macos", not(debug_assertions), not(test), not(feature = "verge-dev")))]
+    if utils::macos_launch_guard::enforce_before_initialization() == utils::macos_launch_guard::LaunchDisposition::Exit
+    {
+        return std::process::ExitCode::SUCCESS;
     }
 
-    #[cfg(target_os = "macos")]
-    utils::macos::legacy_app::remove_legacy_bundle_if_needed();
+    // Runs before the singleton check, which is the first thing to open a file in that directory.
+    #[cfg(windows)]
+    if let Err(error) =
+        utils::dirs::preinit_app_data_dir().and_then(|root| core::owner_identity::repair_app_data_root_owner(&root))
+    {
+        // The logger is installed later in setup(), so this would otherwise be lost.
+        eprintln!("[clash-verge] 应用数据目录所有权修复失败: {error:#}");
+        logging!(error, Type::Setup, "应用数据目录所有权修复失败: {error:#}");
+    }
 
-    #[cfg(target_os = "windows")]
-    utils::windows::legacy_install::remove_legacy_install_if_needed();
+    match handle_singleton_startup(app_init::init_singleton_check(), utils::startup::report_error) {
+        StartupAction::Continue => {}
+        StartupAction::ExitSuccess => return std::process::ExitCode::SUCCESS,
+        StartupAction::ExitFailure => return std::process::ExitCode::FAILURE,
+    }
 
     #[cfg(target_os = "linux")]
     utils::linux::workarounds::apply_nvidia_dmabuf_renderer_workaround();
     #[cfg(target_os = "linux")]
     utils::linux::workarounds::apply_wayland_webkit_fix();
-
-    let _ = utils::dirs::init_portable_flag();
 
     let builder = app_init::setup_plugins(tauri::Builder::default())
         .setup(|app| {
@@ -269,10 +284,10 @@ pub fn run() {
                     .expect("failed to set global app handle");
 
                 if let Err(e) = resolve::init_work_dir_and_logger() {
-                    logging!(error, Type::Setup, "Failed to init work dir/logger: {}", e);
+                    logging!(error, Type::Setup, "Failed to init work dir/logger: {e:#}");
                 }
 
-                logging!(info, Type::Setup, "开始应用初始化...");
+                logging!(debug, Type::Setup, "开始应用初始化...");
                 if let Err(e) = app_init::setup_autostart(app) {
                     logging!(error, Type::Setup, "Failed to setup autostart: {}", e);
                 }
@@ -291,7 +306,6 @@ pub fn run() {
                 resolve::resolve_setup_async();
                 resolve::resolve_setup_sync();
                 resolve::init_signal();
-                logging!(info, Type::Setup, "初始化已启动");
             })) {
                 log_setup_panic("window-core", panic);
             }
@@ -327,10 +341,11 @@ pub fn run() {
             }
 
             logging!(info, Type::System, "应用就绪");
+            crate::utils::server::set_commands_ready();
 
             #[cfg(target_os = "macos")]
             if let Some(window) = _app_handle.get_webview_window("main") {
-                let _ = window.set_title(&crate::utils::dirs::app_window_title());
+                let _ = window.set_title("Clash Verge");
             }
         }
 
@@ -447,16 +462,23 @@ pub fn run() {
             // Windows session ending currently reaches Tao as WM_ENDSESSION and
             // destroys the loop without a preventable ExitRequested event.
             if !handle::Handle::global().is_exiting() {
-                feat::quit().await;
+                handle::Handle::global().set_is_exiting();
+                let cleanup_result = feat::clean_session_ending_best_effort().await;
+                logging!(
+                    info,
+                    Type::System,
+                    "Unpreventable session-ending best-effort cleanup returned - core stopped: {}, all cleanup successful: {}",
+                    cleanup_result.core_stopped,
+                    cleanup_result.all_success
+                );
             }
             logging!(info, Type::System, "Application exited");
+            crate::core::logger::Logger::global().flush_logs();
         }),
         #[allow(unused_variables)]
         tauri::RunEvent::ExitRequested { api, code, .. } => {
             if module::lightweight::is_in_lightweight_mode() && !handle::Handle::global().is_exiting() {
                 api.prevent_exit();
-            } else if handle::Handle::global().is_updating() {
-                logging!(info, Type::System, "Update install: allowing immediate exit");
             } else if code.is_none() {
                 api.prevent_exit();
                 if !handle::Handle::global().is_exiting() {
@@ -486,4 +508,30 @@ pub fn run() {
         },
         _ => {}
     });
+    std::process::ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::{StartupAction, handle_singleton_startup};
+    use crate::utils::server::SingletonDisposition;
+    use std::cell::Cell;
+
+    #[test]
+    fn secondary_instance_exits_quietly_and_successfully() {
+        let reported = Cell::new(false);
+        let action = handle_singleton_startup(Ok(SingletonDisposition::Secondary), |_| reported.set(true));
+
+        assert_eq!(action, StartupAction::ExitSuccess);
+        assert!(!reported.get());
+    }
+
+    #[test]
+    fn fatal_singleton_error_is_reported_and_fails_startup() {
+        let reported = Cell::new(false);
+        let action = handle_singleton_startup(Err(anyhow::anyhow!("listener failed")), |_| reported.set(true));
+
+        assert_eq!(action, StartupAction::ExitFailure);
+        assert!(reported.get());
+    }
 }

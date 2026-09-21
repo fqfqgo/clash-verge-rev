@@ -9,9 +9,9 @@ import SettingSystem from '@/components/setting/setting-system'
 import SettingVergeAdvanced from '@/components/setting/setting-verge-advanced'
 import SettingVergeBasic from '@/components/setting/setting-verge-basic'
 import { FORK_DOC_URL, FORK_GITHUB_RELEASES } from '@/constants/fork'
-import { openWebUrl } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { useThemeMode } from '@/services/states'
+import { openExternalUrl } from '@/utils/open-external-url'
 
 const SettingPage = () => {
   const { t } = useTranslation()
@@ -21,11 +21,11 @@ const SettingPage = () => {
   }
 
   const toGithubRepo = useLockFn(() => {
-    return openWebUrl(FORK_GITHUB_RELEASES)
+    return openExternalUrl(FORK_GITHUB_RELEASES)
   })
 
   const toGithubDoc = useLockFn(() => {
-    return openWebUrl(FORK_DOC_URL)
+    return openExternalUrl(FORK_DOC_URL)
   })
 
   const mode = useThemeMode()

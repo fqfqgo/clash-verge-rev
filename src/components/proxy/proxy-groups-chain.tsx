@@ -1,3 +1,4 @@
+import { DragDropProvider } from '@dnd-kit/react'
 import { ExpandMoreRounded } from '@mui/icons-material'
 import {
   Alert,
@@ -21,23 +22,27 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useProxiesData } from '@/providers/app-data-context'
 import { updateProxyChainConfigInRuntime } from '@/services/cmds'
+import {
+  isInteractableMember,
+  type ProxyGroupView,
+  type ResolvedProxyMember,
+} from '@/types/proxy-view'
 
 import { ScrollTopButton } from '../layout/scroll-top-button'
 
 import { ProxyChain } from './proxy-chain'
+import { type ProxyChainItem, rebindProxyChainItems } from './proxy-chain-model'
 import { ProxyRender } from './proxy-render'
 import type { HeadState } from './use-head-state'
+import {
+  PROXY_GROUP_HEADER_SENSORS,
+  useProxyGroupHeaderLayout,
+} from './use-proxy-group-header-layout'
 import type { IRenderItem } from './use-render-list'
 
 // ---- Types ----
-
-interface ProxyChainItem {
-  id: string
-  name: string
-  type?: string
-  delay?: number
-}
 
 type VirtualListItem = {
   key: Key
@@ -46,11 +51,7 @@ type VirtualListItem = {
   end: number
 }
 
-interface ProxyGroupOption {
-  name: string
-  type: string
-  all?: unknown[]
-}
+type ProxyGroupOption = ProxyGroupView
 
 // ---- Props ----
 
@@ -67,6 +68,7 @@ interface GroupSelectMenuProps {
   groups: ProxyGroupOption[]
   selectedGroup: string | null
   emptyText: string
+  nodeCountLabel: (count: number) => string
   onClose: () => void
   onSelect: (groupName: string) => void
 }
@@ -166,6 +168,7 @@ function GroupSelectMenu({
   groups,
   selectedGroup,
   emptyText,
+  nodeCountLabel,
   onClose,
   onSelect,
 }: GroupSelectMenuProps) {
@@ -201,7 +204,7 @@ function GroupSelectMenu({
               {group.name}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {group.type} · {group.all?.length ?? 0} 节点
+              {group.type} · {nodeCountLabel(group.members.length)}
             </Typography>
           </Box>
         </MenuItem>
@@ -243,7 +246,7 @@ function ProxyVirtualList({
   onLocation: (group: any) => void
   onCheckAll: (groupName: string) => void
   onHeadState: (groupName: string, patch: Partial<HeadState>) => void
-  onChangeProxy: (group: IProxyGroupItem, proxy: IProxyItem) => void
+  onChangeProxy: (group: ProxyGroupView, member: ResolvedProxyMember) => void
 }) {
   const theme = useTheme()
   const stickyBackground =
@@ -316,6 +319,8 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
     onGroupSelect,
     onScrollToTop,
   } = props
+  const { proxyView } = useProxiesData()
+  const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
 
   // Chain-specific state
   const [proxyChain, setProxyChain] = useState<ProxyChainItem[]>(() => {
@@ -330,13 +335,44 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
     return []
   })
 
+  const candidateNodes = useMemo(
+    () =>
+      renderList.flatMap((item) => {
+        const occurrences = item.memberCol ?? (item.member ? [item.member] : [])
+        return occurrences.flatMap(({ member }) =>
+          member.kind === 'node' ? [member.node] : [],
+        )
+      }),
+    [renderList],
+  )
+
+  const currentProxyChain = useMemo(
+    () =>
+      proxyView
+        ? rebindProxyChainItems(proxyChain, candidateNodes, proxyView)
+        : proxyChain.map((item) => ({
+            ...item,
+            recordId: undefined,
+            delay: undefined,
+          })),
+    [candidateNodes, proxyChain, proxyView],
+  )
+
   useEffect(() => {
-    if (proxyChain.length > 0) {
-      localStorage.setItem('proxy-chain-items', JSON.stringify(proxyChain))
+    if (currentProxyChain.length > 0) {
+      const persistedChain = currentProxyChain.map(
+        ({ id, name, type, delay }) => ({
+          id,
+          name,
+          type,
+          delay,
+        }),
+      )
+      localStorage.setItem('proxy-chain-items', JSON.stringify(persistedChain))
     } else {
       localStorage.removeItem('proxy-chain-items')
     }
-  }, [proxyChain])
+  }, [currentProxyChain])
 
   const [ruleMenuAnchor, setRuleMenuAnchor] = useState<null | HTMLElement>(null)
   const [duplicateWarning, setDuplicateWarning] = useState<{
@@ -349,7 +385,7 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
     if (!activeSelectedGroup) return null
     return (
       availableGroups.find(
-        (group: any) => group.name === activeSelectedGroup,
+        (group: ProxyGroupView) => group.name === activeSelectedGroup,
       ) ?? null
     )
   }, [activeSelectedGroup, availableGroups])
@@ -381,11 +417,19 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
   }, [])
 
   const handleChangeProxy = useCallback(
-    (_group: IProxyGroupItem, proxy: IProxyItem) => {
-      // 使用函数式更新来避免状态延迟问题
+    (_group: ProxyGroupView, member: ResolvedProxyMember) => {
+      if (!isInteractableMember(member) || member.kind !== 'node') return
+      const { node } = member
       setProxyChain((prev) => {
-        // 检查是否已经存在相同名称的代理，防止重复添加
-        if (prev.some((item) => item.name === proxy.name)) {
+        const current = proxyView
+          ? rebindProxyChainItems(prev, candidateNodes, proxyView)
+          : prev
+        if (
+          current.some(
+            (item) =>
+              item.recordId !== undefined && item.recordId === node.recordId,
+          )
+        ) {
           const warningMessage = t('proxies.page.chain.duplicateNode')
           setDuplicateWarning({
             open: true,
@@ -396,39 +440,46 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
 
         // 安全获取延迟数据，如果没有延迟数据则设为 undefined
         const delay =
-          proxy.history && proxy.history.length > 0
-            ? proxy.history[proxy.history.length - 1].delay
+          node.history.length > 0
+            ? node.history[node.history.length - 1].delay
             : undefined
 
         const chainItem: ProxyChainItem = {
-          id: `${proxy.name}_${Date.now()}`,
-          name: proxy.name,
-          type: proxy.type,
+          id: `${node.name}_${Date.now()}`,
+          name: node.name,
+          recordId: node.recordId,
+          source: node.source,
+          type: node.type,
           delay,
         }
 
-        return [...prev, chainItem]
+        return [...current, chainItem]
       })
     },
-    [t],
+    [candidateNodes, proxyView, t],
   )
 
   // Render virtual list for chain mode
   const renderProxyList = (height: string) => (
-    <ProxyVirtualList
-      parentRef={parentRef}
-      height={height}
-      totalSize={totalSize}
-      virtualItems={virtualItems}
-      renderList={renderList}
-      activeStickyIndex={activeStickyIndex}
-      isChainMode
-      measureElement={measureElement}
-      onLocation={onLocation}
-      onCheckAll={onCheckAll}
-      onHeadState={onHeadState}
-      onChangeProxy={handleChangeProxy}
-    />
+    <DragDropProvider
+      sensors={PROXY_GROUP_HEADER_SENSORS}
+      onDragEnd={onHeaderDragEnd}
+    >
+      <ProxyVirtualList
+        parentRef={parentRef}
+        height={height}
+        totalSize={totalSize}
+        virtualItems={virtualItems}
+        renderList={renderList}
+        activeStickyIndex={activeStickyIndex}
+        isChainMode
+        measureElement={measureElement}
+        onLocation={onLocation}
+        onCheckAll={onCheckAll}
+        onHeadState={onHeadState}
+        onChangeProxy={handleChangeProxy}
+      />
+    </DragDropProvider>
   )
 
   const showRuleHeader = mode === 'rule' && availableGroups.length > 0
@@ -455,7 +506,7 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
 
         <Box sx={{ width: '400px', minWidth: '300px' }}>
           <ProxyChain
-            proxyChain={proxyChain}
+            proxyChain={currentProxyChain}
             onUpdateChain={setProxyChain}
             chainConfigData={chainConfigData}
             mode={mode}
@@ -483,7 +534,10 @@ export function ProxyGroupsChain(props: ProxyGroupsChainProps) {
         anchorEl={ruleMenuAnchor}
         groups={availableGroups}
         selectedGroup={activeSelectedGroup}
-        emptyText="暂无可用代理组"
+        emptyText={t('proxies.page.empty.noAvailableGroups')}
+        nodeCountLabel={(count) =>
+          t('proxies.page.labels.nodeCount', { count })
+        }
         onClose={handleGroupMenuClose}
         onSelect={handleGroupSelect}
       />

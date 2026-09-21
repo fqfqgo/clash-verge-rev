@@ -1,0 +1,34 @@
+---
+description: 提交说明与元数据中禁止出现 v2free 字样、Release 说明去掉狗狗加速
+alwaysApply: true
+---
+
+# 元数据文案：禁止 v2free / 去掉狗狗加速
+
+在 Git 提交、PR、Release 说明、Changelog 条目、WinGet manifest 注释、工作流 commit message 等**对外或版本元数据**文案中：
+
+1. **不要出现 `v2free` 字样**（含大小写变体，如 `V2free`、`for v2free`），Release 的**标题与描述**同样禁止出现。
+2. **Release 发布说明里去掉「狗狗加速」**（含相关下载镜像/加速文案），生成或编辑 release notes 时如发现必须先删除再发布。
+
+## 适用范围
+
+- `git commit` 标题与正文
+- Pull Request 标题与描述
+- GitHub Release 标题、描述/说明、tag 注释
+- `Changelog.md` 版本小节标题与 bullet 文案
+- CI / 脚本里写入 release notes 的默认文案
+
+## 不适用
+
+- 产品 UI 显示文案（如窗口标题、设置页版本标签）
+- 代码常量、Bundle ID、WinGet 包 ID 等**必须**保留品牌标识的配置
+
+## 示例
+
+```text
+❌ chore: bump version to v2.5.4 for v2free UI release
+✅ chore: bump version to v2.5.4 for fork UI release
+
+❌ ### ✨ v2free 定制
+✅ ### ✨ 品牌与界面定制
+```

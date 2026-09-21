@@ -1,7 +1,4 @@
 import { alpha, Box, Button, LinearProgress } from '@mui/material'
-import { invoke } from '@tauri-apps/api/core'
-import { relaunch } from '@tauri-apps/plugin-process'
-import { open as openUrl } from '@tauri-apps/plugin-shell'
 import type { DownloadEvent } from '@tauri-apps/plugin-updater'
 import { useLockFn } from 'ahooks'
 import type { Ref } from 'react'
@@ -17,11 +14,11 @@ import { useTranslation } from 'react-i18next'
 import type { Options as ReactMarkdownOptions } from 'react-markdown'
 
 import { BaseDialog, DialogRef } from '@/components/base'
-import { forkReleaseTagUrl } from '@/constants/fork'
 import { useUpdate } from '@/hooks/use-update'
+import { restartApp } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
 import { useSetUpdateState, useUpdateState } from '@/services/states'
-import getSystem from '@/utils/get-system'
+import { openExternalUrl } from '@/utils/open-external-url'
 
 type MarkdownNode = {
   type: string
@@ -33,11 +30,26 @@ type MarkdownNode = {
 }
 
 const GITHUB_ALERTS = {
-  note: { label: 'Note', color: '#0969da' },
-  tip: { label: 'Tip', color: '#1a7f37' },
-  important: { label: 'Important', color: '#8250df' },
-  warning: { label: 'Warning', color: '#9a6700' },
-  caution: { label: 'Caution', color: '#cf222e' },
+  note: {
+    labelKey: 'settings.modals.update.alerts.note',
+    color: '#0969da',
+  },
+  tip: {
+    labelKey: 'settings.modals.update.alerts.tip',
+    color: '#1a7f37',
+  },
+  important: {
+    labelKey: 'settings.modals.update.alerts.important',
+    color: '#8250df',
+  },
+  warning: {
+    labelKey: 'settings.modals.update.alerts.warning',
+    color: '#9a6700',
+  },
+  caution: {
+    labelKey: 'settings.modals.update.alerts.caution',
+    color: '#cf222e',
+  },
 } as const
 
 type GitHubAlertType = keyof typeof GITHUB_ALERTS
@@ -46,14 +58,50 @@ const GITHUB_ALERT_PATTERN =
   /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][\t ]*\n?/i
 const GITHUB_ALERT_CLASS_PATTERN =
   /markdown-alert-(note|tip|important|warning|caution)/
+const UPDATE_MARKDOWN_ID_PREFIX = 'update-markdown-'
+
+const shouldShowReleaseNotes = (language: string) => language === 'zh'
 
 const LazyReactMarkdown = lazy(async () => {
-  const [{ default: ReactMarkdown }, { default: rehypeRaw }] =
-    await Promise.all([import('react-markdown'), import('rehype-raw')])
+  const [
+    { default: ReactMarkdown },
+    { default: rehypeRaw },
+    { default: rehypeSanitize, defaultSchema },
+    { default: remarkGfm },
+  ] = await Promise.all([
+    import('react-markdown'),
+    import('rehype-raw'),
+    import('rehype-sanitize'),
+    import('remark-gfm'),
+  ])
+
+  const sanitizeSchema = {
+    ...defaultSchema,
+    clobberPrefix: UPDATE_MARKDOWN_ID_PREFIX,
+    attributes: {
+      ...defaultSchema.attributes,
+      blockquote: [
+        ...(defaultSchema.attributes?.blockquote ?? []),
+        [
+          'className',
+          'markdown-alert',
+          ...Object.keys(GITHUB_ALERTS).map((type) => `markdown-alert-${type}`),
+        ],
+      ],
+      p: [
+        ...(defaultSchema.attributes?.p ?? []),
+        ['className', 'markdown-alert-title'],
+      ],
+    },
+  }
 
   return {
     default: (props: ReactMarkdownOptions) => (
-      <ReactMarkdown {...props} rehypePlugins={[rehypeRaw]} />
+      <ReactMarkdown
+        {...props}
+        remarkPlugins={[remarkGfm, ...(props.remarkPlugins ?? [])]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+      />
     ),
   }
 })
@@ -79,7 +127,7 @@ const findFirstTextNode = (node: MarkdownNode): MarkdownNode | null => {
   return null
 }
 
-const remarkGitHubAlerts = () => {
+const remarkGitHubAlerts = (labels: Record<GitHubAlertType, string>) => {
   const visit = (node: MarkdownNode) => {
     for (const child of node.children ?? []) {
       visit(child)
@@ -114,7 +162,7 @@ const remarkGitHubAlerts = () => {
       children: [
         {
           type: 'text',
-          value: GITHUB_ALERTS[alertType].label,
+          value: labels[alertType],
         },
       ],
     })
@@ -124,7 +172,7 @@ const remarkGitHubAlerts = () => {
 }
 
 export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const [open, setOpen] = useState(false)
   const updateState = useUpdateState()
@@ -137,6 +185,10 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
   const downloadedRef = useRef(0)
   const totalRef = useRef(0)
 
+  const openUrlWithNotice = (url: string) => {
+    void openExternalUrl(url).catch(showNotice.error)
+  }
+
   const progress = useMemo(() => {
     if (total <= 0) return 0
     return Math.min((downloaded / total) * 100, 100)
@@ -147,12 +199,31 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
     close: () => setOpen(false),
   }))
 
+  const githubAlertLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(GITHUB_ALERTS).map(([type, alert]) => [
+          type,
+          t(alert.labelKey),
+        ]),
+      ) as Record<GitHubAlertType, string>,
+    [t],
+  )
+  const remarkGitHubAlertsPlugin = useMemo(
+    () => () => remarkGitHubAlerts(githubAlertLabels),
+    [githubAlertLabels],
+  )
+
+  const activeLanguage = i18n.resolvedLanguage ?? i18n.language
   const markdownContent = useMemo(() => {
     if (!updateInfo?.body) {
-      return 'New Version is available'
+      return t('settings.modals.update.messages.available')
+    }
+    if (!shouldShowReleaseNotes(activeLanguage)) {
+      return t('settings.modals.update.messages.available')
     }
     return updateInfo?.body
-  }, [updateInfo])
+  }, [activeLanguage, t, updateInfo])
 
   const breakChangeFlag = useMemo(() => {
     if (!updateInfo?.body) {
@@ -199,16 +270,9 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
     }
 
     try {
-      await invoke('prepare_for_update')
       await updateInfo.downloadAndInstall(onDownloadEvent)
-      if (getSystem() === 'windows') {
-        // NSIS /R relaunches the new build; exit so installer can replace files.
-        await invoke('exit_for_update')
-      } else {
-        await relaunch()
-      }
+      await restartApp()
     } catch (err: any) {
-      await invoke('clear_prepare_for_update').catch(() => {})
       showNotice.error(err)
     } finally {
       setUpdateState(false)
@@ -250,7 +314,9 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
             size="small"
             sx={{ whiteSpace: 'nowrap' }}
             onClick={() => {
-              openUrl(forkReleaseTagUrl(updateInfo?.version ?? ''))
+              openUrlWithNotice(
+                `https://github.com/clash-verge-rev/clash-verge-rev/releases/tag/v${updateInfo?.version}`,
+              )
             }}
           >
             {t('settings.modals.update.actions.goToRelease')}
@@ -390,12 +456,36 @@ export function UpdateViewer({ ref }: { ref?: Ref<DialogRef> }) {
         {open && (
           <Suspense fallback={<LinearProgress />}>
             <LazyReactMarkdown
-              remarkPlugins={[remarkGitHubAlerts]}
+              remarkPlugins={[remarkGitHubAlertsPlugin]}
               components={{
-                a: ({ ...props }) => {
-                  const { children } = props
+                a: ({ href, children, ...props }) => {
+                  const isFragment = href?.startsWith('#') ?? false
+                  const renderedHref = isFragment
+                    ? `#${UPDATE_MARKDOWN_ID_PREFIX}${href?.slice(1)}`
+                    : href
+                      ? '#'
+                      : undefined
+
                   return (
-                    <a {...props} target="_blank" rel="noreferrer">
+                    <a
+                      {...props}
+                      href={renderedHref}
+                      target={undefined}
+                      rel={undefined}
+                      onClick={(event) => {
+                        if (isFragment) return
+                        event.preventDefault()
+                        if (!href) return
+                        openUrlWithNotice(href)
+                      }}
+                      onAuxClick={(event) => {
+                        if (isFragment) return
+                        event.preventDefault()
+                        if (event.button === 1 && href) {
+                          openUrlWithNotice(href)
+                        }
+                      }}
+                    >
                       {children}
                     </a>
                   )

@@ -97,8 +97,8 @@ async fn import_subscription(url: &str, name: Option<&String>) {
         return;
     }
 
-    if let Err(e) = Config::profiles().await.data_arc().save_file().await {
-        logging!(error, Type::Config, "failed to save imported subscription: {}", e);
+    if let Err(e) = profiles::profiles_save_file_safe().await {
+        logging!(error, Type::Config, "failed to save imported subscription: {e:#}");
         handle::Handle::notice_message("import_sub_url::error", e.to_string());
         return;
     }
@@ -130,7 +130,7 @@ async fn post_import_updates(uid: &String, had_current_profile: bool) {
         false
     } else {
         let profiles = Config::profiles().await;
-        profiles.latest_arc().is_current_profile_index(uid)
+        profiles.latest_arc().current.as_ref() == Some(uid)
     };
 
     if should_update_core {
@@ -152,7 +152,7 @@ async fn refresh_core_config() {
             handle::Handle::notice_message("config_validate::error", message);
         }
         Err(err) => {
-            logging!(error, Type::Config, "Apply config error: {}", err);
+            logging!(error, Type::Config, "Apply config error: {err:#}");
             handle::Handle::notice_message("update_failed", format!("{err}"));
         }
     }

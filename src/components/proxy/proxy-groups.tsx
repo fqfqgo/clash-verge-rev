@@ -1,3 +1,4 @@
+import { DragDropProvider } from '@dnd-kit/react'
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual'
 import { useLockFn } from 'ahooks'
 import { throttle } from 'lodash-es'
@@ -11,7 +12,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { delayGroup } from 'tauri-plugin-mihomo-api'
 
 import {
   BaseEmpty,
@@ -19,20 +19,38 @@ import {
   StickyVirtualList,
   type StickyVirtualListHandle,
 } from '@/components/base'
+import { useProfiles } from '@/hooks/use-profiles'
 import { useProxySelection } from '@/hooks/use-proxy-selection'
 import { useVerge } from '@/hooks/use-verge'
-import { useProxiesData } from '@/providers/app-data-context'
-import { calcuProxies } from '@/services/cmds'
+import { useProxiesData, useSystemData } from '@/providers/app-data-context'
 import delayManager from '@/services/delay'
-import { useQuery } from '@/services/query-client'
+import {
+  isInteractableMember,
+  resolveMember,
+  type ProxyGroupView,
+  type ResolvedProxyMember,
+} from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
 
+import { ProxyEmptyState } from './proxy-empty-state'
+import {
+  resolveEmptyListReason,
+  resolveProxyListState,
+} from './proxy-empty-state-model'
 import {
   DEFAULT_HOVER_DELAY,
   ProxyGroupNavigator,
 } from './proxy-group-navigator'
 import { ProxyRender } from './proxy-render'
-import { type IRenderItem, useRenderList } from './use-render-list'
+import {
+  PROXY_GROUP_HEADER_SENSORS,
+  useProxyGroupHeaderLayout,
+} from './use-proxy-group-header-layout'
+import {
+  hasRenderableItems,
+  type IRenderItem,
+  useRenderList,
+} from './use-render-list'
 
 const ProxyGroupsChain = lazy(() =>
   import('./proxy-groups-chain').then((m) => ({
@@ -52,12 +70,24 @@ interface Props {
   chainConfigData?: string | null
 }
 
+function useEmptyRenderList() {
+  const { isProxyViewError } = useProxiesData()
+  const { runningMode } = useSystemData()
+
+  return (
+    <ProxyEmptyState
+      reason={resolveEmptyListReason({ runningMode, isProxyViewError })}
+    />
+  )
+}
+
 function useProxyRenderState(
   mode: string,
   isChainMode: boolean,
   activeSelectedGroup: string | null,
 ) {
   const { verge } = useVerge()
+  const { proxyView } = useProxiesData()
   const { renderList, onProxies, onHeadState } = useRenderList(
     mode,
     isChainMode,
@@ -71,53 +101,37 @@ function useProxyRenderState(
     [activeSelectedGroup, isChainMode, mode],
   )
 
-  const getGroupHeadState = useCallback(
-    (groupName: string) => {
-      const headItem = renderList.find(
-        (item) => item.type === 1 && item.group?.name === groupName,
-      )
-      return headItem?.headState
-    },
-    [renderList],
-  )
-
   const timeout = verge?.default_latency_timeout || 10000
 
-  // 测全部延迟
   const handleCheckAll = useStableCallback(
     useLockFn(async (groupName: string) => {
       debugLog(`[ProxyGroups] 开始测试所有延迟，组: ${groupName}`)
 
-      const proxies = renderList
-        .filter(
-          (e) => e.group?.name === groupName && (e.type === 2 || e.type === 4),
-        )
-        .flatMap((e) => e.proxyCol || e.proxy!)
-        .filter(Boolean)
+      const group =
+        proxyView?.groups.find(({ name }) => name === groupName) ??
+        (proxyView?.global?.name === groupName ? proxyView.global : undefined)
+      const occurrences =
+        proxyView && group
+          ? group.members.map((member, memberIndex) => ({
+              memberIndex,
+              member: resolveMember(proxyView, member),
+            }))
+          : []
+      const interactable = occurrences
+        .map(({ member }) => member)
+        .filter(isInteractableMember)
 
-      debugLog(`[ProxyGroups] 找到代理数量: ${proxies.length}`)
+      debugLog(`[ProxyGroups] 找到代理数量: ${interactable.length}`)
 
       const url = delayManager.getUrl(groupName)
       debugLog(`[ProxyGroups] 测试URL: ${url}, 超时: ${timeout}ms`)
 
       try {
-        await Promise.race([
-          delayManager.checkListDelay(proxies, groupName, timeout),
-          delayGroup(groupName, url, timeout).then((result) => {
-            debugLog(
-              `[ProxyGroups] getGroupProxyDelays返回结果数量:`,
-              Object.keys(result || {}).length,
-            )
-          }), // 查询group delays 将清除fixed(不关注调用结果)
-        ])
+        await delayManager.checkListDelay(interactable, groupName, timeout)
         debugLog(`[ProxyGroups] 延迟测试完成，组: ${groupName}`)
       } catch (error) {
         console.error(`[ProxyGroups] 延迟测试出错，组: ${groupName}`, error)
       } finally {
-        const headState = getGroupHeadState(groupName)
-        if (headState?.sortType === 1) {
-          onHeadState(groupName, { sortType: headState.sortType })
-        }
         onProxies()
       }
     }),
@@ -170,16 +184,16 @@ function ChainProxyGroups(props: {
   chainConfigData?: string | null
 }) {
   const { mode, chainConfigData } = props
-  const { proxies: proxiesData } = useProxiesData()
+  const { proxyView } = useProxiesData()
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
   const availableGroups = useMemo(() => {
-    const groups = proxiesData?.groups
+    const groups = proxyView?.groups
     if (!groups) return []
     return groups.filter(
-      (group: any) => group.type === 'Selector' || group.type === 'URLTest',
+      (group) => group.type === 'Selector' || group.type === 'URLTest',
     )
-  }, [proxiesData?.groups])
+  }, [proxyView?.groups])
 
   const defaultRuleGroup = useMemo(() => {
     if (mode === 'rule' && availableGroups.length > 0) {
@@ -196,6 +210,7 @@ function ChainProxyGroups(props: {
     getScrollPosition,
     saveScrollPosition,
   } = useProxyRenderState(mode, true, activeSelectedGroup)
+  const emptyList = useEmptyRenderList()
 
   const parentRef = useRef<HTMLDivElement>(null)
   const scrollTopRef = useRef(0)
@@ -236,7 +251,6 @@ function ChainProxyGroups(props: {
   const virtualItems = virtualizer.getVirtualItems()
   const activeStickyIndex = activeStickyIndexRef.current
 
-  // 从 localStorage 恢复滚动位置
   useLayoutEffect(() => {
     if (renderList.length === 0) return
     const node = parentRef.current
@@ -297,16 +311,16 @@ function ChainProxyGroups(props: {
     scrollTopRef.current = 0
   }, [])
 
-  const handleLocation = useStableCallback((group: IProxyGroupItem) => {
+  const handleLocation = useStableCallback((group: ProxyGroupView) => {
     if (!group) return
     const { name, now } = group
 
     const index = renderList.findIndex(
       (item) =>
         item.group?.name === name &&
-        ((item.type === 2 && item.proxy?.name === now) ||
+        ((item.type === 2 && item.member?.member.ref.name === now) ||
           (item.type === 4 &&
-            item.proxyCol?.some((proxy) => proxy.name === now))),
+            item.memberCol?.some(({ member }) => member.ref.name === now))),
     )
 
     if (index >= 0) {
@@ -316,6 +330,8 @@ function ChainProxyGroups(props: {
       })
     }
   })
+
+  if (!hasRenderableItems(renderList)) return emptyList
 
   return (
     <Suspense fallback={<BaseLoading />}>
@@ -353,12 +369,12 @@ function NormalProxyGroups(props: { mode: string }) {
     getScrollPosition,
     saveScrollPosition,
   } = useProxyRenderState(mode, false, null)
+  const emptyList = useEmptyRenderList()
+  const { onDragEnd: onHeaderDragEnd } = useProxyGroupHeaderLayout()
   const renderFirstRef = useRef(true)
-  // 恢复滚动位置期间设为 true，避免程序化滚动触发的 scroll 事件把中间值写回存储
+  // Do not persist intermediate positions produced while restoring virtual scroll.
   const isRestoringRef = useRef(false)
 
-  // 目前无法使用 StickyVirtualList 的 initialOffset 值设置初始化，具体原因需排查
-  // 从 localStorage 恢复滚动位置
   useLayoutEffect(() => {
     if (renderList.length === 0) return
     if (!renderFirstRef.current) return
@@ -366,15 +382,12 @@ function NormalProxyGroups(props: { mode: string }) {
     if (!node) return
 
     const savedPosition = getScrollPosition()
-    // 未保存过位置或位置为 0（顶部）时无需恢复
     if (!savedPosition) {
       renderFirstRef.current = false
       return
     }
 
-    // 虚拟列表初始使用预估高度，真实高度测量完成后总高度才会稳定。
-    // 尤其是过滤后节点数变少时，预估总高度常常不足以一次性滚动到目标位置，
-    // 因此跨帧重试，直到到达目标位置（或内容确实不够高）为止。
+    // Retry across frames until virtual-list measurements can reach the saved offset.
     isRestoringRef.current = true
     let rafId = 0
     let attempts = 0
@@ -414,7 +427,6 @@ function NormalProxyGroups(props: { mode: string }) {
 
   const handleScroll = useCallback(
     (event: Event) => {
-      // 恢复位置过程中产生的滚动不写回存储，避免中间的钳制值覆盖真实位置
       if (isRestoringRef.current) return
       const target = event.target as HTMLElement | null
       const nextScrollTop = target?.scrollTop ?? 0
@@ -449,24 +461,25 @@ function NormalProxyGroups(props: { mode: string }) {
   })
 
   const handleChangeProxy = useCallback(
-    (group: IProxyGroupItem, proxy: IProxyItem) => {
+    (group: ProxyGroupView, member: ResolvedProxyMember) => {
       if (!['Selector', 'URLTest', 'Fallback'].includes(group.type)) return
+      if (!isInteractableMember(member)) return
 
-      handleProxyGroupChange(group, proxy)
+      handleProxyGroupChange(group, { name: member.ref.name })
     },
     [handleProxyGroupChange],
   )
 
-  // 滚到对应的节点
-  const handleLocation = useStableCallback((group: IProxyGroupItem) => {
+  const handleLocation = useStableCallback((group: ProxyGroupView) => {
     if (!group) return
     const { name, now } = group
 
     const index = renderList.findIndex(
       (e) =>
         e.group?.name === name &&
-        ((e.type === 2 && e.proxy?.name === now) ||
-          (e.type === 4 && e.proxyCol?.some((p) => p.name === now))),
+        ((e.type === 2 && e.member?.member.ref.name === now) ||
+          (e.type === 4 &&
+            e.memberCol?.some(({ member }) => member.ref.name === now))),
     )
 
     if (index >= 0) {
@@ -477,7 +490,6 @@ function NormalProxyGroups(props: { mode: string }) {
     }
   })
 
-  // 定位到指定的代理组
   const handleGroupLocationByName = useCallback(
     (groupName: string) => {
       const index = renderList.findIndex(
@@ -501,9 +513,8 @@ function NormalProxyGroups(props: { mode: string }) {
     return Array.from(new Set(names))
   }, [renderList])
 
-  // 点击代理组改变展开状态，先滚动到sticky的代理组位置，再收起展开状态
   const handleGroupToggle = useCallback(
-    async (group: IProxyGroupItem) => {
+    async (group: ProxyGroupView) => {
       const index = renderList.findIndex(
         (item) => item.type === 0 && item.group.name === group.name,
       )
@@ -565,20 +576,26 @@ function NormalProxyGroups(props: { mode: string }) {
     [handleChangeProxy, handleCheckAll, onHeadState, handleLocation],
   )
 
+  if (!hasRenderableItems(renderList)) return emptyList
+
   return (
     <div style={{ position: 'relative', height: '100%' }}>
-      <StickyVirtualList
-        ref={stickyListRef}
-        items={renderList}
-        isGroupItem={(item) => item.type === 0}
-        getItemKey={(item) => item.key}
-        estimateGroupItemHeight={76}
-        estimateItemHeight={64}
-        renderGroupItem={renderGroupItem}
-        renderItem={renderProxyItem}
-      />
+      <DragDropProvider
+        sensors={PROXY_GROUP_HEADER_SENSORS}
+        onDragEnd={onHeaderDragEnd}
+      >
+        <StickyVirtualList
+          ref={stickyListRef}
+          items={renderList}
+          isGroupItem={(item) => item.type === 0}
+          getItemKey={(item) => item.key}
+          estimateGroupItemHeight={76}
+          estimateItemHeight={64}
+          renderGroupItem={renderGroupItem}
+          renderItem={renderProxyItem}
+        />
+      </DragDropProvider>
 
-      {/* 代理组导航栏 */}
       {mode === 'rule' && (
         <ProxyGroupNavigator
           proxyGroupNames={proxyGroupNames}
@@ -593,25 +610,30 @@ function NormalProxyGroups(props: { mode: string }) {
 
 export const ProxyGroups = (props: Props) => {
   const { mode, isChainMode = false, chainConfigData } = props
+  const { profiles, isLoading: isProfilesLoading } = useProfiles()
+  const { isProxyViewPending } = useProxiesData()
+  const { isRunningModePending } = useSystemData()
 
-  // Drive 3s polling on the shared TQ cache; data is read via granular context below
-  useQuery({
-    queryKey: ['getProxies'],
-    queryFn: calcuProxies,
-    refetchInterval: 3000,
-    refetchIntervalInBackground: false,
-    staleTime: 1500,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+  const listState = resolveProxyListState({
+    mode,
+    profiles,
+    isProfilesPending: !profiles && isProfilesLoading,
+    isProxyViewPending,
+    isRunningModePending,
   })
 
-  if (mode === 'direct') {
-    return <BaseEmpty textKey="proxies.page.messages.directMode" />
+  switch (listState.kind) {
+    case 'direct':
+      return <BaseEmpty textKey="proxies.page.messages.directMode" />
+    case 'loading':
+      return <BaseLoading />
+    case 'empty':
+      return <ProxyEmptyState reason={listState.reason} />
+    case 'render':
+      return isChainMode ? (
+        <ChainProxyGroups mode={mode} chainConfigData={chainConfigData} />
+      ) : (
+        <NormalProxyGroups mode={mode} />
+      )
   }
-
-  if (isChainMode) {
-    return <ChainProxyGroups mode={mode} chainConfigData={chainConfigData} />
-  }
-
-  return <NormalProxyGroups mode={mode} />
 }

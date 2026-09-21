@@ -1,8 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
 import dayjs from 'dayjs'
-import { getProxies, getProxyProviders } from 'tauri-plugin-mihomo-api'
 
+import type { CommandFailure } from '@/services/notice-service'
 import { showNotice } from '@/services/notice-service'
+import type { ProxyViewV1 } from '@/types/proxy-view'
 import { debugLog } from '@/utils/debug'
 
 export async function copyClashEnv() {
@@ -82,19 +83,13 @@ export async function getClashInfo() {
   return invoke<IClashInfo | null>('get_clash_info')
 }
 
-// Fault-tolerant current proxy mode read (does not depend on mihomo /configs
-// strict BaseConfig deserialization); used as a fallback for the home mode card.
+// Fallback mode read independent of strict mihomo `/configs` deserialization.
 export async function getClashMode() {
   return invoke<string | null>('get_clash_mode')
 }
 
-// Get runtime config which controlled by verge
 export async function getRuntimeConfig() {
   return invoke<IConfigData | null>('get_runtime_config')
-}
-
-async function getRuntimeProxyGroupOrder() {
-  return invoke<string[]>('get_runtime_proxy_group_order')
 }
 
 export async function getRuntimeYaml() {
@@ -129,128 +124,21 @@ export async function syncTrayProxySelection() {
   return invoke<void>('sync_tray_proxy_selection')
 }
 
-export async function calcuProxies(): Promise<{
-  global: IProxyGroupItem
-  direct: IProxyItem
-  groups: IProxyGroupItem[]
-  records: Record<string, IProxyItem>
-  proxies: IProxyItem[]
-}> {
-  const [proxyResponse, providerResponse, runtimeGroupOrder] =
-    await Promise.all([
-      getProxies(),
-      calcuProxyProviders(),
-      getRuntimeProxyGroupOrder(),
-    ])
-
-  const proxyRecord = proxyResponse.proxies
-  const providerRecord = providerResponse
-
-  // provider name map
-  const providerMap = Object.fromEntries(
-    Object.entries(providerRecord).flatMap(([provider, item]) =>
-      item!.proxies.map((p) => [p.name, { ...p, provider }]),
-    ),
-  )
-
-  // compatible with proxy-providers
-  const generateItem = (name: string) => {
-    if (proxyRecord[name]) return proxyRecord[name]
-    if (providerMap[name]) return providerMap[name]
-    return {
-      name,
-      type: 'unknown',
-      udp: false,
-      xudp: false,
-      tfo: false,
-      mptcp: false,
-      smux: false,
-      history: [],
-    }
-  }
-
-  const { GLOBAL: global, DIRECT: direct, REJECT: reject } = proxyRecord
-
-  let groups: IProxyGroupItem[] = Object.values(proxyRecord).reduce<
-    IProxyGroupItem[]
-  >((acc, each) => {
-    if (each?.name !== 'GLOBAL' && each?.all) {
-      acc.push({
-        ...each,
-        all: each.all!.map((item) => generateItem(item)),
-      })
-    }
-
-    return acc
-  }, [])
-
-  if (global?.all) {
-    const globalGroups: IProxyGroupItem[] = global.all.reduce<
-      IProxyGroupItem[]
-    >((acc, name) => {
-      if (proxyRecord[name]?.all) {
-        acc.push({
-          ...proxyRecord[name],
-          all: proxyRecord[name].all!.map((item) => generateItem(item)),
-        })
-      }
-      return acc
-    }, [])
-
-    const globalNames = new Set(globalGroups.map((each) => each.name))
-    groups = groups
-      .filter((group) => {
-        return !globalNames.has(group.name)
-      })
-      .concat(globalGroups)
-  }
-
-  const groupOrder = new Map(
-    runtimeGroupOrder.map((name, index) => [name, index]),
-  )
-
-  groups.sort((a, b) => {
-    const aIndex = groupOrder.get(a.name) ?? Number.MAX_SAFE_INTEGER
-    const bIndex = groupOrder.get(b.name) ?? Number.MAX_SAFE_INTEGER
-    if (aIndex !== bIndex) return aIndex - bIndex
-    if (a.name < b.name) return -1
-    if (a.name > b.name) return 1
-    return 0
-  })
-
-  const proxies = [direct, reject].concat(
-    Object.values(proxyRecord).filter(
-      (p) => !p?.all?.length && p?.name !== 'DIRECT' && p?.name !== 'REJECT',
-    ),
-  )
-
-  const _global = {
-    ...global,
-    all: global?.all?.map((item) => generateItem(item)) || [],
-  }
-
-  // 原本的 records 拥有所有节点信息，新版本内核需要将 provider 的节点信息合并到 records 中, 同时兼容旧版本数据
-  const records = { ...proxyRecord, ...providerMap }
-
-  return {
-    global: _global as IProxyGroupItem,
-    direct: direct as IProxyItem,
-    groups,
-    records: records as Record<string, IProxyItem>,
-    proxies: (proxies as IProxyItem[]) ?? [],
-  }
+/** Sends one selection pair so the backend can merge against current profile state. */
+export async function recordSelectedNode(groupName: string, node: string) {
+  return invoke<void>('record_selected_node', { groupName, node })
 }
 
-export async function calcuProxyProviders() {
-  const providers = await getProxyProviders()
-  return Object.fromEntries(
-    Object.entries(providers.providers)
-      .sort()
-      .filter(
-        ([_, item]) =>
-          item?.vehicleType === 'HTTP' || item?.vehicleType === 'File',
-      ),
-  )
+export async function forgetSelectedNode(groupName: string) {
+  return invoke<void>('forget_selected_node', { groupName })
+}
+
+export async function getProxyView(): Promise<ProxyViewV1> {
+  const view = await invoke<ProxyViewV1>('get_proxy_view')
+  if (view.schemaVersion !== 1) {
+    throw new Error('Unsupported proxy view schema: ' + view.schemaVersion)
+  }
+  return view
 }
 
 export async function getClashLogs() {
@@ -284,6 +172,20 @@ export async function patchVergeConfig(payload: IVergeConfig) {
   return invoke<void>('patch_verge_config', { payload })
 }
 
+export async function setDnsOverride(enabled: boolean, confirmation?: string) {
+  return invoke<
+    { status: 'applied' } | { status: 'confirmation_required'; source: string }
+  >('set_dns_override', { enabled, confirmation })
+}
+
+export async function takeDnsOverrideNotice() {
+  return invoke<boolean>('take_dns_override_notice')
+}
+
+export async function takeServiceFallbackNotice() {
+  return invoke<boolean>('take_service_fallback_notice')
+}
+
 export async function getSystemProxy() {
   return invoke<{
     enable: boolean
@@ -310,16 +212,27 @@ export async function getAutotemProxy() {
   }
 }
 
-export async function changeClashCore(clashCore: string) {
-  return invoke<string | null>('change_clash_core', { clashCore })
+export async function getEmbeddedServerPort() {
+  return invoke<number>('get_embedded_server_port')
 }
 
-export async function stopCore() {
-  return invoke<void>('stop_core')
+export async function changeClashCore(clashCore: string) {
+  return invoke<CommandFailure | null>('change_clash_core', { clashCore })
 }
 
 export async function restartCore() {
   return invoke<void>('restart_core')
+}
+
+export interface CoreUpgradeReport {
+  /** False when the managed core was already at the latest version. */
+  upgraded: boolean
+  from: string
+  to: string
+}
+
+export async function upgradeClashCore(force = false) {
+  return invoke<CoreUpgradeReport>('upgrade_clash_core', { force })
 }
 
 export async function restartApp() {
@@ -342,12 +255,10 @@ export async function openLogsDir() {
   return invoke<void>('open_logs_dir').catch((err) => showNotice.error(err))
 }
 
-export const openWebUrl = async (url: string) => {
-  try {
-    await invoke('open_web_url', { url })
-  } catch (err: any) {
-    showNotice.error(err)
-  }
+export async function syncRuntimeProviders() {
+  return invoke<void>('sync_runtime_providers').catch((err) => {
+    console.warn('failed to queue the provider cache sync', err)
+  })
 }
 
 /** Launch default browser with current Clash proxy (mixed port). */
@@ -518,57 +429,126 @@ export async function listLocalBackup() {
   return invoke<ILocalBackupFile[]>('list_local_backup')
 }
 
-// 获取当前运行模式
-export const getRunningMode = async () => {
-  return invoke<string>('get_running_mode')
+export type RunningMode = 'Service' | 'Sidecar' | 'NotRunning'
+
+type ServiceHealth =
+  | 'unknown'
+  | 'ready'
+  | 'notInstalled'
+  | 'versionMismatch'
+  | 'unavailable'
+
+type PendingServiceAction =
+  | 'install'
+  | 'uninstall'
+  | 'reinstall'
+  | 'forceReinstall'
+
+/** Consistent core/service snapshot with backend-derived availability flags. */
+export interface RunState {
+  mode: RunningMode
+  service: ServiceHealth
+  serviceUnavailableReason: string | null
+  pendingAction: PendingServiceAction | null
+  sidecarAllowed: boolean
+  isAdmin: boolean
+  opInFlight: boolean
+  serviceUsable: boolean
+  tunCapable: boolean
+  serviceNeedsAttention: boolean
 }
 
-// 获取应用运行时间
+export const getRuntimeState = async () => {
+  return invoke<RunState>('get_runtime_state')
+}
+
+export type FailedOperation =
+  | 'systemProxyEnable'
+  | 'systemProxyDisable'
+  | 'systemProxyRestore'
+  | 'systemProxyGuard'
+
+export interface PendingFailure {
+  code: string
+  detail: string
+  operation: FailedOperation
+  sequence: number
+}
+
+export const getPendingFailures = async () => {
+  return invoke<PendingFailure[]>('get_pending_failures')
+}
+
 export const getAppUptime = async () => {
   return invoke<number>('get_app_uptime')
 }
 
-// 安装系统服务
 export const installService = async () => {
   return invoke<void>('install_service')
 }
 
-// 卸载系统服务
 export const uninstallService = async () => {
   return invoke<void>('uninstall_service')
 }
 
-// 系统服务是否可用
-export const isServiceAvailable = async () => {
-  try {
-    return await invoke<boolean>('is_service_available')
-  } catch (error) {
-    console.error('Service check failed:', error)
-    return false
-  }
-}
-export const entry_lightweight_mode = async () => {
-  return invoke<void>('entry_lightweight_mode')
+export const reinstallService = async () => {
+  return invoke<void>('reinstall_service')
 }
 
-export const isAdmin = async () => {
-  try {
-    return await invoke<boolean>('app_is_admin')
-  } catch (error) {
-    console.error('检查管理员权限失败:', error)
-    return false
-  }
+export const repairService = async () => {
+  return invoke<void>('repair_service')
+}
+
+export const continueWithSidecar = async () => {
+  return invoke<void>('continue_with_sidecar')
+}
+
+export const entry_lightweight_mode = async () => {
+  return invoke<void>('entry_lightweight_mode')
 }
 
 export async function getNextUpdateTime(uid: string) {
   return invoke<number | null>('get_next_update_time', { uid })
 }
 
-export const isPortInUse = async (port: number) => {
-  try {
-    return await invoke<boolean>('is_port_in_use', { port })
-  } catch (error) {
-    console.error('检查端口使用状态失败:', error)
-    return false
-  }
+interface ToggleableProxyPort {
+  enabled: boolean
+  port: number
+}
+
+export interface ProxyPortSettings {
+  mixedPort: number
+  socks: ToggleableProxyPort
+  http: ToggleableProxyPort
+  redir: ToggleableProxyPort
+  tproxy: ToggleableProxyPort
+}
+
+export type ListenerTransport = 'tcp' | 'udp'
+
+export interface ListenerProbe {
+  address: string
+  transports: ListenerTransport[]
+}
+
+export type ListenerProbeOutcome =
+  | { status: 'available' }
+  | {
+      status: 'conflict'
+      port: number
+      transport: ListenerTransport
+    }
+  | { status: 'invalid'; message: string }
+  | { status: 'indeterminate'; message: string }
+
+export type SaveProxyPortsOutcome =
+  | { status: 'saved' }
+  | { status: 'conflict'; port: number; transport: ListenerTransport }
+
+export const probeListener = async (request: ListenerProbe) => {
+  return invoke<ListenerProbeOutcome>('probe_listener', { request })
+}
+
+export const saveProxyPorts = async (settings: ProxyPortSettings) => {
+  return invoke<SaveProxyPortsOutcome>('save_proxy_ports', { settings })
 }

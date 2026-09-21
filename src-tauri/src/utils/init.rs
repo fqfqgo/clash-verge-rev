@@ -1,4 +1,3 @@
-// #[cfg(not(feature = "tracing"))]
 use crate::{
     config::{Config, IClashTemp, IProfiles, IVerge},
     constants,
@@ -34,7 +33,7 @@ async fn delete_snapshot_logs(log_dir: &Path) -> Result<()> {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("log") {
                 let _ = path.remove_if_exists().await;
-                logging!(info, Type::Setup, "delete snapshot log file: {}", path.display());
+                logging!(debug, Type::Setup, "delete snapshot log file: {}", path.display());
             }
         }
     }
@@ -43,7 +42,6 @@ async fn delete_snapshot_logs(log_dir: &Path) -> Result<()> {
 }
 
 // TODO flexi_logger 提供了最大保留天数，或许我们应该用内置删除log文件
-/// 删除log文件
 pub async fn delete_log() -> Result<()> {
     let log_dir = dirs::app_logs_dir()?;
     let service_log_dir = dirs::service_log_dir()?;
@@ -63,7 +61,6 @@ pub async fn delete_log() -> Result<()> {
         verge.auto_log_clean.unwrap_or(0)
     };
 
-    // 1: 1天, 2: 7天, 3: 30天, 4: 90天
     let day = match auto_log_clean {
         1 => 1,
         2 => 7,
@@ -72,9 +69,8 @@ pub async fn delete_log() -> Result<()> {
         _ => return Ok(()),
     };
 
-    logging!(info, Type::Setup, "try to delete log files, day: {}", day);
+    logging!(debug, Type::Setup, "try to delete log files, day: {}", day);
 
-    // %Y-%m-%d to NaiveDateTime
     let parse_time_str = |s: &str| {
         let sa: Vec<&str> = s.split('-').collect();
         if sa.len() != 4 {
@@ -106,7 +102,7 @@ pub async fn delete_log() -> Result<()> {
             let duration = now.signed_duration_since(file_time);
             if duration.num_days() > day {
                 let _ = file.path().remove_if_exists().await;
-                logging!(info, Type::Setup, "delete log file: {}", file_name);
+                logging!(debug, Type::Setup, "delete log file: {}", file_name);
             }
         }
         Ok(())
@@ -232,6 +228,46 @@ async fn migrate_legacy_macos_service_logs(log_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Once per install; the marker is written even when no interval needed raising.
+pub async fn migrate_short_update_intervals() -> Result<()> {
+    let marker = dirs::update_interval_migrated_path()?;
+    if fs::try_exists(&marker).await? {
+        return Ok(());
+    }
+
+    // Same lock order as other writers; saving inside the closure keeps a racing restore intact.
+    let _profile_write = crate::config::profiles::PROFILE_WRITE_LOCK.lock().await;
+
+    let min = constants::profile::MIN_UPDATE_INTERVAL;
+    let raised = Config::profiles()
+        .await
+        .with_data_modify(|mut profiles: IProfiles| async move {
+            // A failed profiles load (bare default) must not burn the one-shot marker.
+            if profiles.items.is_none() {
+                anyhow::bail!("profiles.yaml was not loaded; refusing to record the migration as done");
+            }
+            let raised = profiles.raise_short_update_intervals(min);
+            if raised > 0 {
+                profiles.save_file().await?;
+            }
+            Ok((profiles, raised))
+        })
+        .await?;
+
+    if raised > 0 {
+        logging!(
+            info,
+            Type::Setup,
+            "已将 {} 个订阅的自动更新间隔提升到 {} 分钟",
+            raised,
+            min
+        );
+    }
+
+    fs::write(&marker, b"").await?;
+    Ok(())
+}
+
 #[cfg(target_os = "macos")]
 async fn migrate_legacy_macos_logs() -> Result<()> {
     let log_dir = dirs::app_logs_dir()?;
@@ -242,7 +278,7 @@ async fn migrate_legacy_macos_logs() -> Result<()> {
 
     if is_logs_dir_writable(&log_dir).await {
         if let Err(e) = migrate_legacy_macos_service_logs(&log_dir).await {
-            logging!(warn, Type::Setup, "Failed to migrate legacy macOS service logs: {}", e);
+            logging!(warn, Type::Setup, "Failed to migrate legacy macOS service logs: {e:#}");
         }
         return Ok(());
     }
@@ -274,14 +310,12 @@ async fn migrate_legacy_macos_logs() -> Result<()> {
     Ok(())
 }
 
-/// 初始化DNS配置文件
 pub(super) async fn init_dns_config() -> Result<()> {
     use serde_yaml_ng::Value;
 
-    // 创建DNS子配置
     let dns_config = serde_yaml_ng::Mapping::from_iter([
         ("enable".into(), Value::Bool(true)),
-        // 与前端 DNS 默认一致,并供 dns.ipv6 锁定使用
+        // Must match the frontend default used for authoritative `dns.ipv6`.
         ("ipv6".into(), Value::Bool(true)),
         ("listen".into(), Value::String(":53".into())),
         ("enhanced-mode".into(), Value::String("fake-ip".into())),
@@ -330,14 +364,7 @@ pub(super) async fn init_dns_config() -> Result<()> {
             "nameserver-policy".into(),
             Value::Mapping(serde_yaml_ng::Mapping::new()),
         ),
-        (
-            "proxy-server-nameserver".into(),
-            Value::Sequence(vec![
-                Value::String("https://doh.pub/dns-query".into()),
-                Value::String("https://dns.alidns.com/dns-query".into()),
-                Value::String("tls://223.5.5.5".into()),
-            ]),
-        ),
+        ("proxy-server-nameserver".into(), Value::Sequence(vec![])),
         ("direct-nameserver".into(), Value::Sequence(vec![])),
         ("direct-nameserver-follow-policy".into(), Value::Bool(false)),
         (
@@ -364,13 +391,11 @@ pub(super) async fn init_dns_config() -> Result<()> {
         ),
     ]);
 
-    // 获取默认DNS和host配置
     let default_dns_config = serde_yaml_ng::Mapping::from_iter([
         ("dns".into(), Value::Mapping(dns_config)),
         ("hosts".into(), Value::Mapping(serde_yaml_ng::Mapping::new())),
     ]);
 
-    // 检查DNS配置文件是否存在
     let app_dir = dirs::app_home_dir()?;
     let dns_path = app_dir.join(constants::files::DNS_CONFIG);
 
@@ -382,7 +407,6 @@ pub(super) async fn init_dns_config() -> Result<()> {
     Ok(())
 }
 
-/// 确保目录结构存在
 async fn ensure_directories() -> Result<()> {
     let directories = [
         ("app_home", dirs::app_home_dir()?),
@@ -403,7 +427,6 @@ async fn ensure_directories() -> Result<()> {
     Ok(())
 }
 
-/// 初始化配置文件
 async fn initialize_config_files() -> Result<()> {
     if let Ok(path) = dirs::clash_path()
         && !path.exists()
@@ -435,7 +458,6 @@ async fn initialize_config_files() -> Result<()> {
         logging!(info, Type::Setup, "Created profiles config at {:?}", path);
     }
 
-    // 验证并修正verge配置
     IVerge::validate_and_fix_config()
         .await
         .map_err(|e| anyhow::anyhow!("Failed to validate verge config: {}", e))?;
@@ -443,14 +465,8 @@ async fn initialize_config_files() -> Result<()> {
     Ok(())
 }
 
-/// Initialize all the config files
-/// before tauri setup
+/// Initializes configuration required before Tauri setup.
 pub async fn init_config() -> Result<()> {
-    // We do not need init_portable_flag here anymore due to lib.rs will to the things
-    // let _ = dirs::init_portable_flag();
-
-    // We do not need init_log here anymore due to resolve will to the things
-
     #[cfg(target_os = "macos")]
     migrate_legacy_macos_logs().await?;
 
@@ -460,16 +476,15 @@ pub async fn init_config() -> Result<()> {
 
     AsyncHandler::spawn(|| async {
         if let Err(e) = delete_log().await {
-            logging!(warn, Type::Setup, "Failed to clean old logs: {}", e);
+            logging!(warn, Type::Setup, "Failed to clean old logs: {e:#}");
         }
-        logging!(info, Type::Setup, "后台日志清理任务完成");
+        logging!(debug, Type::Setup, "后台日志清理任务完成");
     });
 
     Ok(())
 }
 
-/// initialize app resources
-/// after tauri setup
+/// Initializes application resources after Tauri setup.
 pub async fn init_resources() -> Result<()> {
     let app_dir = dirs::app_home_dir()?;
     let res_dir = dirs::app_resources_dir()?;
@@ -483,8 +498,6 @@ pub async fn init_resources() -> Result<()> {
 
     let file_list = ["Country.mmdb", "geoip.dat", "geosite.dat"];
 
-    // copy the resource file
-    // if the source file is newer than the destination file, copy it over
     for file in file_list.iter() {
         let src_path = res_dir.join(file);
         let dest_path = app_dir.join(file);
@@ -513,7 +526,6 @@ pub async fn init_resources() -> Result<()> {
     Ok(())
 }
 
-/// initialize url scheme
 #[cfg(target_os = "windows")]
 pub fn init_scheme() -> Result<()> {
     use tauri::utils::platform::current_exe;

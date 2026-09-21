@@ -4,16 +4,48 @@ use serde::Serialize;
 use smartstring::alias::String;
 use std::{
     fmt,
+    hash::{DefaultHasher, Hash as _, Hasher as _},
+    sync::LazyLock,
     sync::atomic::{AtomicBool, Ordering},
 };
 use tauri_plugin_shell::ShellExt as _;
 use tokio::fs;
 
-use crate::config::{Config, ConfigType};
+use crate::config::Config;
 use crate::core::handle;
 use crate::singleton;
-use crate::utils::dirs;
+use crate::utils::{dirs, help};
 use clash_verge_logging::{Type, logging};
+
+const SYNTAX_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+static LAST_VALIDATED: LazyLock<parking_lot::Mutex<Option<u64>>> = LazyLock::new(|| parking_lot::Mutex::new(None));
+
+async fn validation_fingerprint(yaml: &str) -> u64 {
+    let core = Config::verge().await.latest_arc().get_valid_clash_core();
+    let mut hasher = DefaultHasher::new();
+    yaml.hash(&mut hasher);
+    core.as_str().hash(&mut hasher);
+    let binary = std::env::current_exe()
+        .into_iter()
+        .map(|exe| exe.with_file_name(format!("{}{}", core.as_str(), std::env::consts::EXE_SUFFIX)));
+    // The test run reads geo databases from the app dir; a geo update must revalidate.
+    let geo = dirs::app_home_dir().into_iter().flat_map(|dir| {
+        super::runtime_bundle::GEO_ASSETS
+            .iter()
+            .map(move |asset| dir.join(asset))
+    });
+    for path in binary.chain(geo) {
+        match std::fs::metadata(&path) {
+            Ok(meta) => {
+                meta.len().hash(&mut hasher);
+                meta.modified().ok().hash(&mut hasher);
+            }
+            Err(_) => 0u8.hash(&mut hasher),
+        }
+    }
+    hasher.finish()
+}
 
 pub struct CoreConfigValidator {
     is_processing: AtomicBool,
@@ -133,16 +165,13 @@ impl CoreConfigValidator {
 }
 
 impl CoreConfigValidator {
-    /// 检查文件是否为脚本文件
     async fn is_script_file(path: &str) -> Result<bool> {
-        // 1. 先通过扩展名快速判断
         if has_ext(path, "yaml") || has_ext(path, "yml") {
-            return Ok(false); // YAML文件不是脚本文件
+            return Ok(false);
         } else if has_ext(path, "js") {
-            return Ok(true); // JS文件是脚本文件
+            return Ok(true);
         }
 
-        // 2. 读取文件内容
         let content = match fs::read_to_string(path).await {
             Ok(content) => content,
             Err(err) => {
@@ -151,13 +180,11 @@ impl CoreConfigValidator {
             }
         };
 
-        // 3. 检查是否存在明显的YAML特征
         let has_yaml_features = content.contains(": ")
             || content.contains("#")
             || content.contains("---")
             || content.lines().any(|line| line.trim().starts_with("- "));
 
-        // 4. 检查是否存在明显的JS特征
         let has_js_features = content.contains("function ")
             || content.contains("const ")
             || content.contains("let ")
@@ -168,16 +195,11 @@ impl CoreConfigValidator {
             || content.contains("export ")
             || content.contains("import ");
 
-        // 5. 决策逻辑
         if has_yaml_features && !has_js_features {
-            // 只有YAML特征，没有JS特征
             return Ok(false);
         } else if has_js_features && !has_yaml_features {
-            // 只有JS特征，没有YAML特征
             return Ok(true);
         } else if has_yaml_features && has_js_features {
-            // 两种特征都有，需要更精细判断
-            // 优先检查是否有明确的JS结构特征
             if content.contains("function main")
                 || content.contains("module.exports")
                 || content.contains("export default")
@@ -185,24 +207,21 @@ impl CoreConfigValidator {
                 return Ok(true);
             }
 
-            // 检查冒号后是否有空格（YAML的典型特征）
             let yaml_pattern_count = content.lines().filter(|line| line.contains(": ")).count();
 
             if yaml_pattern_count > 2 {
-                return Ok(false); // 多个键值对格式，更可能是YAML
+                return Ok(false);
             }
         }
 
-        // 默认情况：无法确定时，假设为非脚本文件（更安全）
+        // Unknown files take the safer YAML validation path.
         logging!(debug, Type::Validate, "无法确定文件类型，默认当作YAML处理: {}", path);
         Ok(false)
     }
 
-    /// 只进行文件语法检查，不进行完整验证
     async fn validate_file_syntax_outcome(config_path: &str) -> Result<ValidationOutcome> {
         logging!(info, Type::Validate, "开始检查文件: {}", config_path);
 
-        // 读取文件内容
         let content = match fs::read_to_string(config_path).await {
             Ok(content) => content,
             Err(err) => {
@@ -211,7 +230,6 @@ impl CoreConfigValidator {
                 return Ok(ValidationOutcome::invalid_from_message(error_msg));
             }
         };
-        // 对YAML文件尝试解析，只检查语法正确性
         logging!(info, Type::Validate, "进行YAML语法检查");
         match serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&content) {
             Ok(_) => {
@@ -226,9 +244,7 @@ impl CoreConfigValidator {
         }
     }
 
-    /// 验证脚本文件语法
     async fn validate_script_file_outcome(path: &str) -> Result<ValidationOutcome> {
-        // 读取脚本内容
         let content = match fs::read_to_string(path).await {
             Ok(content) => content,
             Err(err) => {
@@ -239,30 +255,33 @@ impl CoreConfigValidator {
         };
 
         logging!(debug, Type::Validate, "验证脚本文件: {}", path);
+        let has_main =
+            content.contains("function main") || content.contains("const main") || content.contains("let main");
 
-        // 使用boa引擎进行基本语法检查
-        use boa_engine::{Context, Source};
+        // Boa parsing is pure CPU; keep it off the async worker, with a timeout.
+        let syntax = crate::process::AsyncHandler::spawn_blocking(move || {
+            use boa_engine::{Context, Source};
 
-        let mut context = Context::default();
-        let _ = context.eval(Source::from_bytes(
-            "var console = Object.freeze({
-              log(...data){},
-              info(...data){},
-              error(...data){},
-              debug(...data){},
-            });",
-        ));
-        let result = context.eval(Source::from_bytes(&content));
+            let mut context = Context::default();
+            let _ = context.eval(Source::from_bytes(
+                "var console = Object.freeze({log(...data){},info(...data){},error(...data){},debug(...data){}});",
+            ));
+            context
+                .eval(Source::from_bytes(&content))
+                .map(|_| ())
+                .map_err(|err| err.to_string())
+        });
+        let result = match tokio::time::timeout(SYNTAX_CHECK_TIMEOUT, syntax).await {
+            Ok(Ok(evaluated)) => evaluated,
+            Ok(Err(join_err)) => Err(format!("syntax check task failed: {join_err}")),
+            Err(_) => Err("syntax check timed out".to_owned()),
+        };
 
         match result {
-            Ok(_) => {
+            Ok(()) => {
                 logging!(debug, Type::Validate, "脚本语法验证通过: {}", path);
 
-                // 检查脚本是否包含main函数
-                if !content.contains("function main")
-                    && !content.contains("const main")
-                    && !content.contains("let main")
-                {
+                if !has_main {
                     let error_msg = "Script must contain a main function";
                     logging!(warn, Type::Validate, "脚本缺少main函数: {}", path);
                     return Ok(ValidationOutcome::invalid_from_message(error_msg));
@@ -278,12 +297,10 @@ impl CoreConfigValidator {
         }
     }
 
-    /// 验证指定的配置文件
     pub async fn validate_config_file_outcome(
         config_path: &str,
         is_merge_file: Option<bool>,
     ) -> Result<ValidationOutcome> {
-        // 检查程序是否正在退出，如果是则跳过验证
         if handle::Handle::global().is_exiting() {
             logging!(info, Type::Core, "应用正在退出，跳过验证");
             return Ok(ValidationOutcome::Skipped {
@@ -291,13 +308,11 @@ impl CoreConfigValidator {
             });
         }
 
-        // 检查文件是否存在
         if !std::path::Path::new(config_path).exists() {
             let error_msg: String = format!("File not found: {config_path}").into();
             return Ok(ValidationOutcome::invalid_from_message(error_msg));
         }
 
-        // 如果是合并文件且不是强制验证，执行语法检查但不进行完整验证
         if is_merge_file.unwrap_or(false) {
             logging!(info, Type::Validate, "检测到Merge文件，仅进行语法检查: {}", config_path);
             return Self::validate_file_syntax_outcome(config_path).await;
@@ -306,7 +321,6 @@ impl CoreConfigValidator {
         let is_script = match Self::is_script_file(config_path).await {
             Ok(result) => result,
             Err(err) => {
-                // 如果无法确定文件类型，尝试使用Clash内核验证
                 logging!(warn, Type::Validate, "无法确定文件类型: {}, 错误: {}", config_path, err);
                 return Self::validate_config_internal_outcome(config_path).await;
             }
@@ -322,14 +336,11 @@ impl CoreConfigValidator {
             return Self::validate_script_file_outcome(config_path).await;
         }
 
-        // 对YAML配置文件使用Clash内核验证
         logging!(info, Type::Validate, "使用Clash内核验证配置文件: {}", config_path);
         Self::validate_config_internal_outcome(config_path).await
     }
 
-    /// 内部验证配置文件的实现
     async fn validate_config_internal_outcome(config_path: &str) -> Result<ValidationOutcome> {
-        // 检查程序是否正在退出，如果是则跳过验证
         if handle::Handle::global().is_exiting() {
             logging!(info, Type::Validate, "应用正在退出，跳过验证");
             return Ok(ValidationOutcome::Skipped {
@@ -347,19 +358,21 @@ impl CoreConfigValidator {
         let app_dir_str = dirs::path_to_str(&app_dir)?;
         logging!(info, Type::Validate, "验证目录: {}", app_dir_str);
 
-        // 使用子进程运行clash验证配置
-        let command =
-            app_handle
-                .shell()
-                .sidecar(clash_core.as_str())?
-                .args(["-t", "-d", app_dir_str, "-f", config_path]);
-        let output = command.output().await?;
+        let command = app_handle.shell().sidecar(clash_core.as_str()).map_err(|error| {
+            anyhow::anyhow!("failed to build validation command for core {clash_core:?}: {error:#}")
+        })?;
+        let command = command.args(["-t", "-d", app_dir_str, "-f", config_path]);
+        let output = command.output().await.map_err(|error| {
+            anyhow::anyhow!(
+                "failed to run validation core {clash_core:?} for config {config_path:?} in data directory {}: {error:#}",
+                app_dir.display()
+            )
+        })?;
 
         let status = &output.status;
         let stderr = &output.stderr;
         let stdout = &output.stdout;
 
-        // 检查进程退出状态和错误输出
         let error_keywords = ["FATA", "fatal", "Parse config error", "level=fatal"];
         let has_error = !status.success() || contains_any_keyword(stderr, &error_keywords);
 
@@ -378,7 +391,7 @@ impl CoreConfigValidator {
             } else if let Some(code) = status.code() {
                 format!("验证进程异常退出，退出码: {code}").into()
             } else {
-                "验证进程被终止".into()
+                "验证进程被终止，请检查是否有安全软件阻止了内核运行，或电脑 CPU/运行环境是否支持该内核程序。".into()
             };
 
             logging!(info, Type::Validate, "-------- 验证结束 --------");
@@ -395,8 +408,8 @@ impl CoreConfigValidator {
         }
     }
 
-    /// 验证运行时配置
-    pub async fn validate_config_outcome(&self) -> Result<ValidationOutcome> {
+    /// Skips the subprocess when these bytes were already accepted by the same core build.
+    pub async fn validate_config_outcome_with(&self, yaml: &str) -> Result<ValidationOutcome> {
         if !self.try_start() {
             logging!(info, Type::Validate, "验证已在进行中，跳过新的验证请求");
             return Ok(ValidationOutcome::Busy);
@@ -406,9 +419,20 @@ impl CoreConfigValidator {
         }
         logging!(info, Type::Validate, "生成临时配置文件用于验证");
 
-        let config_path = Config::generate_file(ConfigType::Check).await?;
-        let config_path = dirs::path_to_str(&config_path)?;
-        Self::validate_config_internal_outcome(config_path).await
+        let fingerprint = validation_fingerprint(yaml).await;
+        if *LAST_VALIDATED.lock() == Some(fingerprint) {
+            logging!(info, Type::Validate, "配置与上次通过验证的字节一致，跳过内核检查");
+            return Ok(ValidationOutcome::Valid);
+        }
+
+        let check_path = dirs::app_home_dir()?.join(crate::constants::files::CHECK_CONFIG);
+        help::save_yaml_str(&check_path, yaml).await?;
+        let outcome = Self::validate_config_internal_outcome(dirs::path_to_str(&check_path)?).await?;
+        if outcome.is_valid() {
+            *LAST_VALIDATED.lock() = Some(fingerprint);
+            let _ = fs::remove_file(&check_path).await;
+        }
+        Ok(outcome)
     }
 }
 

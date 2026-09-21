@@ -1,10 +1,10 @@
 [package]
 name = "clash-verge"
-version = "2.5.21"
-description = "Clash Verge for v2free"
+version = "2.5.22"
+description = "clash verge"
 authors = ["zzzgydi", "Tunglies", "wonfen", "MystiPanda"]
 license = "GPL-3.0-only"
-repository = "https://github.com/fqfqgo/clash-verge-rev.git"
+repository = "https://github.com/clash-verge-rev/clash-verge-rev.git"
 default-run = "clash-verge"
 build = "build.rs"
 edition = "2024"
@@ -17,20 +17,23 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-verge-dev = ["clash_verge_logger/color"]
-tauri-dev = []
-tokio-trace = ["console-subscriber"]
+verge-dev = ["clash-verge-logging/color", "clash_verge_service_ipc/development-channel"]
+dev-sidecar = ["verge-dev"]
+tauri-dev = ["dep:tauri-plugin-devtools"]
+tokio-trace = ["clash-verge-logging/tokio-trace"]
+chrome-trace = ["clash-verge-logging/chrome-trace"]
 clippy = ["tauri/test"]
-tracing = []
+perf-harness = ["dep:tauri-plugin-wdio-webdriver"]
 
 [package.metadata.bundle]
-identifier = "io.github.fqfqgo.clash-verge-for-v2free"
+identifier = "io.github.clash-verge-rev.clash-verge-rev"
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 clash-verge-draft = { workspace = true }
+clash-verge-media-unlock = { workspace = true }
 clash-verge-logging = { workspace = true }
 clash-verge-signal = { workspace = true }
 clash-verge-i18n = { workspace = true }
@@ -40,6 +43,7 @@ tauri-plugin-clipboard-manager = { workspace = true }
 tauri = { workspace = true, features = [
   "protocol-asset",
   "devtools",
+  "tracing",
   "tray-icon",
   "image-ico",
   "image-png",
@@ -47,83 +51,72 @@ tauri = { workspace = true, features = [
 parking_lot = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
-compact_str = { workspace = true }
-flexi_logger = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }
 smartstring = { workspace = true, features = ["serde"] }
 bitflags = { workspace = true }
+socket2 = { workspace = true }
 warp = { version = "0.4.3", features = ["server"] }
-open = "5.3.6"
+open = "5.4.4"
+rfd = { version = "0.16.0", default-features = false, features = ["common-controls-v6"] }
+dirs = "7.0.0"
 dunce = "1.0.5"
 nanoid = "0.5"
-chrono = "0.4.45"
-boa_engine = "0.21.1"
+chrono = { workspace = true }
+boa_engine = "0.22.0"
 once_cell = { version = "1.21.4", features = ["parking_lot"] }
 percent-encoding = "2.3.2"
-reqwest = { version = "0.13.4", features = [
-  "json",
-  "cookies",
-  "gzip",
-  "rustls",
-  "form",
-] }
-regex = "1.12.4"
-sysproxy = { git = "https://github.com/clash-verge-rev/sysproxy-rs", features = [
+reqwest = { workspace = true }
+regex = { workspace = true }
+sysproxy = { git = "https://github.com/clash-verge-rev/sysproxy-rs.git", branch = "main", features = [
   "guard",
 ] }
 network-interface = { version = "2.0.5", features = ["serde"] }
-tauri-plugin-shell = "2.3.5"
-tauri-plugin-dialog = "2.7.1"
-tauri-plugin-fs = "2.5.1"
+tauri-plugin-shell = "2.3.6"
+tauri-plugin-opener = "2.5.5"
+tauri-plugin-dialog = "2.7.3"
+tauri-plugin-fs = "2.5.2"
 tauri-plugin-process = "2.3.1"
-tauri-plugin-deep-link = "2.4.9"
+tauri-plugin-deep-link = "2.4.10"
 tauri-plugin-window-state = "2.4.1"
 zip = "8.6.0"
+flate2 = "1.1.10"
 reqwest_dav = "0.3.3"
-aes-gcm = { version = "0.11.0" }
-aes = "0.8"
-cbc = "0.1"
-md5 = "0.7"
-serde-xml-rs = "0.6.0"
-base64 = "0.22.1"
+aes-gcm = { version = "0.11.1" }
+base64 = "0.23.1"
+sha2 = "0.11"
 getrandom = "0.4.3"
-futures = "0.3.32"
+futures = "0.3.34"
 gethostname = "1.1.0"
 scopeguard = "1.2.0"
-tauri-plugin-notification = "2.3.3"
-tokio-stream = "0.1.18"
+tauri-plugin-notification = "2.4.0"
+tokio-stream = "0.1.19"
 backon = { version = "1.6.0", features = ["tokio-sleep"] }
-tauri-plugin-http = "2.5.9"
-console-subscriber = { version = "0.5.0", optional = true }
-tauri-plugin-devtools = { version = "2.1.0" }
-# Pinned to an exact rev (not upstream's tracking branch) per our own
-# check-mihomo-plugin.mjs policy: both Rust and JS halves must be reproducible-
-# build pinned and validated together before bumping (see script comment).
-# rev matches upstream v2.5.2's known-good pin (their `fix/api-robustness` tip)
-# so the newer `models::Proxy` API used by config/profiles.rs is available.
-tauri-plugin-mihomo = { git = "https://github.com/clash-verge-rev/tauri-plugin-mihomo", rev = "cf97ff99e390a9b437d5cf94c6f454f024fc8f69" }
-clash_verge_logger = { git = "https://github.com/clash-verge-rev/clash-verge-logger", rev = "e4768e3852c4868ed86e7210df82c1178467820d" }
-async-trait = "0.1.89"
-# rev matches upstream v2.5.2's pin; unpinned would float to the crate's latest
-# commit, which added a breaking OwnerCredentials/OwnerSessionProof IPC API.
-clash_verge_service_ipc = { version = "2.3.3", features = [
+tauri-plugin-http = "2.6.0"
+tracing = { workspace = true }
+tauri-plugin-devtools = { version = "2.2.1", optional = true }
+# Keep the Rust and JavaScript mihomo APIs on the exact same revision. A
+# floating branch here can silently produce an incompatible desktop build.
+tauri-plugin-mihomo = { git = "https://github.com/clash-verge-rev/tauri-plugin-mihomo", rev = "17c7757389ca73d29882753ecf7a160de29aabbe" }
+async-trait = "0.1.92"
+clash_verge_service_ipc = { git = "https://github.com/clash-verge-rev/clash-verge-service-ipc.git", tag = "v2.7.2", version = "2.7.2", features = [
   "client",
-], git = "https://github.com/clash-verge-rev/clash-verge-service-ipc", rev = "b964ed2992599fadefd589425c1acdabcb875623" }
+] }
 arc-swap = "1.9.2"
-tokio-rustls = "0.26.4"
-rustls = { version = "0.23.41", features = ["ring"] }
-webpki-roots = "1.0.8"
-rust_iso3166 = "0.2.0"
-# Use the git repo until the next release after v2.0.0.
-dark-light = { git = "https://github.com/rust-dark-light/dark-light", rev = "0f18d2fbcaa5d1c175db8aae7d53428988d7e961" }
-windows-sys.workspace = true
-bytes = "1.12.0"
-tokio-util = { version = "0.7.18", features = ["time"] }
+tokio-rustls = "0.26.5"
+rustls = { version = "0.23.45", features = ["ring"] }
+webpki-roots = "1.0.9"
+dark-light = "3.0.0"
+bytes = "1.12.1"
+tokio-util = { version = "0.7.19", features = ["time"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.189"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+tauri-plugin-wdio-webdriver = { version = "=1.4.0", optional = true }
 objc2 = "0.6.4"
 objc2-foundation = { version = "0.3.2", features = [
   "NSString",
@@ -150,16 +143,19 @@ objc2-app-kit = { version = "0.3.2", features = [
 deelevate = { workspace = true }
 runas = "=1.2.0"
 winreg = "0.56.0"
+windows-service = "0.8.1"
 windows = { version = "0.62.2", features = ["Win32_Globalization"] }
+windows-sys.workspace = true
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-global-shortcut = "2.3.2"
-tauri-plugin-updater = "2.10.1"
+tauri-plugin-updater = "2.11.0"
 
 [dev-dependencies]
 criterion = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
+warp = { version = "0.4.3", features = ["test"] }
 
 [lints]
 workspace = true
-

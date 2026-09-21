@@ -46,7 +46,7 @@
       "fields": {
         "coreVersion": "Çekirdek Sürümü",
         "systemProxyAddress": "Sistem Vekil Adresi",
-        "mixedPort": "Mixed Port",
+        "mixedPort": "Karma Port",
         "uptime": "Çalışma Süresi",
         "rulesCount": "Kural Sayısı"
       }
@@ -83,7 +83,9 @@
         "unknown": "Bilinmiyor"
       },
       "errors": {
-        "load": "IP bilgisi alınamadı"
+        "load": "IP bilgisi alınamadı",
+        "loadWithDetails": "IP bilgisi alınamadı: {{message}}",
+        "noServices": "Kullanılabilir IP algılama hizmeti yok"
       }
     },
     "currentProxy": {
@@ -97,6 +99,18 @@
         "group": "Grup",
         "proxy": "Vekil",
         "noActiveNode": "Aktif vekil düğümü yok"
+      },
+      "status": {
+        "testing": "Test ediliyor",
+        "untested": "Test edilmedi",
+        "error": "Hata",
+        "timeout": "Zaman aşımı",
+        "latencyHigh": "Yüksek gecikme",
+        "latencyMedium": "Orta gecikme",
+        "latencyGood": "İyi gecikme",
+        "latencyExcellent": "Mükemmel gecikme",
+        "uninitialized": "Başlatılmadı",
+        "noProxyNode": "Proxy düğümü yok"
       }
     },
     "tests": {
@@ -114,8 +128,14 @@
         "download": "İndirme"
       },
       "patterns": {
-        "minutes": "{{time}} Minutes"
-      }
+        "minutes": "{{time}} Dakika"
+      },
+      "unknownTime": "Bilinmeyen zaman",
+      "chartStyles": {
+        "smooth": "Yumuşak",
+        "linear": "Doğrusal"
+      },
+      "diagnostics": "Nokta: {{points}} | Sıkıştırılmış: {{compressed}} | FPS: {{fps}}"
     },
     "clashMode": {
       "errors": {
@@ -127,9 +147,9 @@
         "direct": "Doğrudan Mod"
       },
       "descriptions": {
-        "rule": "Automatically choose proxies according to the rule set.",
-        "global": "Forward all network requests through the selected proxy.",
-        "direct": "Bypass the proxy and connect to the internet directly."
+        "rule": "Vekilleri kural kümesine göre otomatik olarak seçer.",
+        "global": "Tüm ağ isteklerini seçili vekil üzerinden iletir.",
+        "direct": "Vekili atlar ve internete doğrudan bağlanır."
       }
     }
   }

@@ -1,8 +1,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::process::ExitCode;
+#[cfg(not(all(feature = "perf-harness", target_os = "macos")))]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-fn main() {
+#[cfg(all(feature = "perf-harness", target_os = "macos"))]
+#[path = "../../scripts/perf/app.rs"]
+mod perf;
+
+#[cfg(all(feature = "perf-harness", target_os = "macos"))]
+fn main() -> ExitCode {
+    perf::run()
+}
+
+#[cfg(not(all(feature = "perf-harness", target_os = "macos")))]
+fn main() -> ExitCode {
     let default_parallelism = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let worker_limit = std::cmp::min(default_parallelism, 8);
     let blocking_limit = 2 * worker_limit;
@@ -22,8 +34,5 @@ fn main() {
     let tokio_handle = tokio_runtime.handle();
     tauri::async_runtime::set(tokio_handle.clone());
 
-    #[cfg(feature = "tokio-trace")]
-    console_subscriber::init();
-
-    app_lib::run();
+    app_lib::run()
 }

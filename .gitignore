@@ -13,10 +13,7 @@ scripts/_env.sh
 .eslintcache
 .changelog_backups
 target
-CLAUDE.md
 .vfox.toml
 .vfox
 .claude
-AGENTS.md
-.cursor/rules/no-v2free-in-metadata.mdc
 .zed

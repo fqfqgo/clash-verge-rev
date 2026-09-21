@@ -24,14 +24,11 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { SubscriptionPasswordDialog } from '@/components/profile/subscription-password-dialog'
-import {
-  isSubscriptionPasswordError,
-  isSubscriptionWrongPassword,
-} from '@/components/profile/subscription-password-utils'
 import { useAppRefreshers } from '@/providers/app-data-context'
-import { openWebUrl, patchProfile, updateProfile } from '@/services/cmds'
+import { updateProfile } from '@/services/cmds'
 import { showNotice } from '@/services/notice-service'
+import { isValidUrl } from '@/utils/network'
+import { openExternalUrl } from '@/utils/open-external-url'
 import parseTraffic from '@/utils/parse-traffic'
 
 import { EnhancedCard } from './enhanced-card'
@@ -45,13 +42,17 @@ const round = keyframes`
 // 辅助函数解析URL和过期时间
 const parseUrl = (url?: string) => {
   if (!url) return '-'
-  if (url.startsWith('http')) return new URL(url).host
+  if (isValidUrl(url)) return new URL(url).host
   return 'local'
 }
 
 const parseExpire = (expire?: number) => {
   if (!expire) return '-'
   return dayjs(expire * 1000).format('YYYY-MM-DD')
+}
+
+const openProfileHome = (url: string) => {
+  void openExternalUrl(url).catch(showNotice.error)
 }
 
 // 使用类型定义，而不是导入
@@ -120,7 +121,7 @@ const ProfileDetails = ({
               {current.home ? (
                 <Link
                   component="button"
-                  onClick={() => current.home && openWebUrl(current.home)}
+                  onClick={() => current.home && openProfileHome(current.home)}
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -290,62 +291,19 @@ export const HomeProfileCard = ({
 
   // 更新当前订阅
   const [updating, setUpdating] = useState(false)
-  const [subscriptionPwDialog, setSubscriptionPwDialog] = useState<{
-    open: boolean
-    wrongPassword: boolean
-    initialValue: string
-    resolve: (v: string | null) => void
-  } | null>(null)
-
-  const promptSubscriptionPassword = useCallback(
-    (wrongPassword: boolean, initialValue: string = '') =>
-      new Promise<string | null>((resolve) => {
-        setSubscriptionPwDialog({
-          open: true,
-          wrongPassword,
-          initialValue,
-          resolve: (v) => {
-            setSubscriptionPwDialog(null)
-            resolve(v)
-          },
-        })
-      }),
-    [],
-  )
 
   const onUpdateProfile = useLockFn(async () => {
     if (!current?.uid) return
 
     setUpdating(true)
     try {
-      let option = current.option ?? {}
-      while (true) {
-        try {
-          await updateProfile(
-            current.uid,
-            Object.keys(option).length > 0 ? option : undefined,
-          )
-          onProfileUpdated?.()
+      await updateProfile(current.uid, current.option)
+      onProfileUpdated?.()
 
-          // 刷新首页数据
-          refreshAll()
-          break
-        } catch (err) {
-          if (!isSubscriptionPasswordError(err)) {
-            showNotice.error(err, 3000)
-            break
-          }
-          const password = await promptSubscriptionPassword(
-            isSubscriptionWrongPassword(err),
-            (option as { login_password?: string })?.login_password ?? '',
-          )
-          if (password === null) break
-          option = { ...option, login_password: password }
-          await patchProfile(current.uid, {
-            option: { ...current.option, login_password: password },
-          })
-        }
-      }
+      // 刷新首页数据
+      refreshAll()
+    } catch (err) {
+      showNotice.error(err, 3000)
     } finally {
       setUpdating(false)
     }
@@ -366,7 +324,7 @@ export const HomeProfileCard = ({
       <Link
         component="button"
         variant="h6"
-        onClick={() => current.home && openWebUrl(current.home)}
+        onClick={() => current.home && openProfileHome(current.home)}
         sx={{
           color: 'inherit',
           textDecoration: 'none',
@@ -417,32 +375,21 @@ export const HomeProfileCard = ({
   }, [current, goToProfiles, t])
 
   return (
-    <>
-      <EnhancedCard
-        title={cardTitle}
-        icon={<CloudUploadOutlined />}
-        iconColor="info"
-        action={cardAction}
-      >
-        {current ? (
-          <ProfileDetails
-            current={current}
-            onUpdateProfile={onUpdateProfile}
-            updating={updating}
-          />
-        ) : (
-          <EmptyProfile onClick={goToProfiles} />
-        )}
-      </EnhancedCard>
-      {subscriptionPwDialog && (
-        <SubscriptionPasswordDialog
-          open={subscriptionPwDialog.open}
-          wrongPassword={subscriptionPwDialog.wrongPassword}
-          initialValue={subscriptionPwDialog.initialValue}
-          onConfirm={(password) => subscriptionPwDialog.resolve(password)}
-          onCancel={() => subscriptionPwDialog.resolve(null)}
+    <EnhancedCard
+      title={cardTitle}
+      icon={<CloudUploadOutlined />}
+      iconColor="info"
+      action={cardAction}
+    >
+      {current ? (
+        <ProfileDetails
+          current={current}
+          onUpdateProfile={onUpdateProfile}
+          updating={updating}
         />
+      ) : (
+        <EmptyProfile onClick={goToProfiles} />
       )}
-    </>
+    </EnhancedCard>
   )
 }
