@@ -64,6 +64,7 @@
         "settings": "الإعدادات"
       },
       "badges": {
+        "notRunning": "النواة لا تعمل",
         "adminMode": "Administrator Mode",
         "serviceMode": "وضع الخدمة",
         "sidecarMode": "User Mode",

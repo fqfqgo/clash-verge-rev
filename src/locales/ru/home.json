@@ -64,6 +64,7 @@
         "settings": "Настройки"
       },
       "badges": {
+        "notRunning": "Ядро не запущено",
         "adminMode": "Режим администратора",
         "serviceMode": "Режим службы",
         "sidecarMode": "Пользовательский режим",
