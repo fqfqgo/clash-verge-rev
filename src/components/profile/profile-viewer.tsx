@@ -17,10 +17,11 @@ import { useTranslation } from 'react-i18next'
 import { BaseDialog, Switch } from '@/components/base'
 import { useProfiles } from '@/hooks/use-profiles'
 import { createProfile, patchProfile } from '@/services/cmds'
-import { showNotice } from '@/services/notice-service'
+import { errorDetail, showNotice } from '@/services/notice-service'
 import { version } from '@root/package.json'
 
 import { FileInput } from './file-input'
+import { isSubscriptionPasswordError } from './subscription-password-utils'
 
 interface Props {
   onChange: (isActivating?: boolean) => void
@@ -149,7 +150,10 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               }
               await patchProfile(form.uid, item)
             }
-          } catch {
+          } catch (err) {
+            if (isSubscriptionPasswordError(err)) {
+              throw new Error(errorDetail(err), { cause: err })
+            }
             showNotice.info(
               'profiles.modals.profileForm.feedback.notifications.creationRetry',
             )
@@ -169,6 +173,7 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
               if (!form.uid) {
                 throw new Error(
                   t('profiles.modals.profileForm.errors.uidMissing'),
+                  { cause: err },
                 )
               }
               await patchProfile(form.uid, retryItem)
@@ -300,6 +305,23 @@ export function ProfileViewer({ onChange, ref }: ProfileViewerProps) {
                 {...field}
                 multiline
                 label={t('profiles.modals.profileForm.fields.subscriptionUrl')}
+              />
+            )}
+          />
+
+          <Controller
+            name="option.login_password"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...text}
+                {...field}
+                type="password"
+                autoComplete="off"
+                label={t('profiles.modals.profileForm.fields.loginPassword')}
+                placeholder={t(
+                  'profiles.modals.profileForm.fields.loginPasswordPlaceholder',
+                )}
               />
             )}
           />

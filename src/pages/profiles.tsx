@@ -92,6 +92,9 @@ const ProfilePage = () => {
   const [importPasswordUrl, setImportPasswordUrl] = useState<string | null>(
     null,
   )
+  const [importPasswordOption, setImportPasswordOption] = useState<
+    Partial<IProfileOption>
+  >({})
   const [wrongImportPassword, setWrongImportPassword] = useState(false)
   const [disabled, setDisabled] = useState(false)
   const [profileDndRevision, setProfileDndRevision] = useState(0)
@@ -243,6 +246,7 @@ const ProfilePage = () => {
 
       if (isSubscriptionPasswordError(initialErr)) {
         setWrongImportPassword(isSubscriptionWrongPassword(initialErr))
+        setImportPasswordOption({ with_proxy: true })
         setImportPasswordUrl(url)
         return
       }
@@ -263,6 +267,12 @@ const ProfilePage = () => {
           'shared.feedback.notifications.importWithClashProxy',
         )
       } catch (retryErr) {
+        if (isSubscriptionPasswordError(retryErr)) {
+          setWrongImportPassword(isSubscriptionWrongPassword(retryErr))
+          setImportPasswordOption({ with_proxy: false, self_proxy: true })
+          setImportPasswordUrl(url)
+          return
+        }
         showNotice.error(
           'profiles.page.feedback.notifications.importFail',
           retryErr,
@@ -1015,7 +1025,10 @@ const ProfilePage = () => {
           if (!importPasswordUrl) return
           setLoading(true)
           try {
-            await importProfile(importPasswordUrl, { login_password })
+            await importProfile(importPasswordUrl, {
+              ...importPasswordOption,
+              login_password,
+            })
             showNotice.success('shared.feedback.notifications.importSuccess')
             setUrl('')
             setImportPasswordUrl(null)

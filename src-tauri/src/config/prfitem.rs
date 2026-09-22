@@ -364,11 +364,7 @@ impl PrfItem {
             .unwrap_or_else(|| filename.map(|s| s.into()).unwrap_or_else(|| "Remote File".into()));
         let mut data = resp.text().to_owned();
 
-        let encrypted = header
-            .get("Subscription-Encryption")
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"));
-        if encrypted {
+        if is_subscription_encrypted(header) {
             let password = login_password
                 .as_deref()
                 .filter(|password| !password.is_empty())
@@ -563,6 +559,18 @@ impl PrfItem {
 
 fn allow_auto_update_enabled(option: Option<&PrfOption>) -> bool {
     option.and_then(|o| o.allow_auto_update).unwrap_or(true)
+}
+
+fn is_subscription_encrypted(headers: &reqwest::header::HeaderMap) -> bool {
+    headers.iter().any(|(name, value)| {
+        name.as_str()
+            .to_ascii_lowercase()
+            .strip_suffix("subscription-encryption")
+            .is_some_and(|prefix| prefix.is_empty() || prefix.ends_with('-'))
+            && value
+                .to_str()
+                .is_ok_and(|value| value.trim().eq_ignore_ascii_case("true"))
+    })
 }
 
 /// Fix URLs where query parameters are incorrectly appended to the path segment

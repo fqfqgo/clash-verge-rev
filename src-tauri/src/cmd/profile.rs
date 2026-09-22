@@ -68,6 +68,11 @@ pub async fn import_profile(url: std::string::String, option: Option<PrfOption>)
     let item = &mut match PrfItem::from_url(&url, None, None, option.as_ref()).await {
         Ok(it) => it,
         Err(e) => {
+            let err_str = e.to_string();
+            if err_str.contains("SUBSCRIPTION_NEED_PASSWORD") || err_str.contains("SUBSCRIPTION_WRONG_PASSWORD") {
+                logging!(info, Type::Cmd, "[导入订阅] 加密订阅，请输入网站登录密码");
+                return Err(coded_error("PROFILE_IMPORT_FAILED", err_str));
+            }
             logging!(error, Type::Cmd, "[导入订阅] 下载失败: {e:#}");
             return Err(coded_error("PROFILE_IMPORT_FAILED", profile_import_error(&e)));
         }

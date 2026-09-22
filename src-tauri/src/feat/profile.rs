@@ -124,6 +124,9 @@ async fn perform_profile_update(
             return Ok(());
         }
         Err(err) => {
+            if is_subscription_password_error(&err) {
+                return Err(err);
+            }
             logging!(
                 warn,
                 Type::Config,
@@ -144,6 +147,9 @@ async fn perform_profile_update(
             return Ok(());
         }
         Err(err) => {
+            if is_subscription_password_error(&err) {
+                return Err(err);
+            }
             logging!(
                 warn,
                 Type::Config,
@@ -225,6 +231,13 @@ pub async fn update_profile(uid: &String, option: Option<&PrfOption>, is_mannual
     }
 
     Ok(())
+}
+
+fn is_subscription_password_error(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        let message = cause.to_string();
+        message.contains("SUBSCRIPTION_NEED_PASSWORD") || message.contains("SUBSCRIPTION_WRONG_PASSWORD")
+    })
 }
 
 /// 增强配置
