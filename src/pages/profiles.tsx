@@ -38,6 +38,11 @@ import {
   ProfileViewer,
   type ProfileViewerRef,
 } from '@/components/profile/profile-viewer'
+import { SubscriptionPasswordDialog } from '@/components/profile/subscription-password-dialog'
+import {
+  isSubscriptionPasswordError,
+  isSubscriptionWrongPassword,
+} from '@/components/profile/subscription-password-utils'
 import { ConfigViewer } from '@/components/setting/mods/config-viewer'
 import { useListen } from '@/hooks/use-listen'
 import { fetchProfilesIntoCache, useProfiles } from '@/hooks/use-profiles'
@@ -84,6 +89,10 @@ const ProfilePage = () => {
   const location = useLocation()
   const { addListener } = useListen()
   const [url, setUrl] = useState('')
+  const [importPasswordUrl, setImportPasswordUrl] = useState<string | null>(
+    null,
+  )
+  const [wrongImportPassword, setWrongImportPassword] = useState(false)
   const [disabled, setDisabled] = useState(false)
   const [profileDndRevision, setProfileDndRevision] = useState(0)
   const [activatings, setActivatings] = useState<string[]>([])
@@ -231,6 +240,12 @@ const ProfilePage = () => {
       await handleImportSuccess('shared.feedback.notifications.importSuccess')
     } catch (initialErr) {
       console.warn('[订阅导入] 首次导入失败:', initialErr)
+
+      if (isSubscriptionPasswordError(initialErr)) {
+        setWrongImportPassword(isSubscriptionWrongPassword(initialErr))
+        setImportPasswordUrl(url)
+        return
+      }
 
       const initialDetail = errorDetail(initialErr)
       if (initialDetail.toLowerCase().includes('legacy tls')) {
@@ -992,6 +1007,34 @@ const ProfilePage = () => {
         }}
       />
       <ConfigViewer ref={configRef} />
+      <SubscriptionPasswordDialog
+        open={importPasswordUrl !== null}
+        wrongPassword={wrongImportPassword}
+        onCancel={() => setImportPasswordUrl(null)}
+        onConfirm={async (login_password) => {
+          if (!importPasswordUrl) return
+          setLoading(true)
+          try {
+            await importProfile(importPasswordUrl, { login_password })
+            showNotice.success('shared.feedback.notifications.importSuccess')
+            setUrl('')
+            setImportPasswordUrl(null)
+            await performRobustRefresh()
+          } catch (err) {
+            if (isSubscriptionPasswordError(err)) {
+              setWrongImportPassword(isSubscriptionWrongPassword(err))
+            } else {
+              setImportPasswordUrl(null)
+              showNotice.error(
+                'profiles.page.feedback.notifications.importFail',
+                err,
+              )
+            }
+          } finally {
+            setLoading(false)
+          }
+        }}
+      />
     </BasePage>
   )
 }

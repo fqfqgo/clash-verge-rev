@@ -6,7 +6,9 @@ use crate::{
         tmpl,
     },
 };
+use aes::cipher::{BlockDecryptMut as _, KeyIvInit as _, block_padding::Pkcs7};
 use anyhow::{Context as _, Result, bail};
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_yaml_ng::Mapping;
 use smartstring::alias::String;
@@ -15,6 +17,8 @@ use tokio::fs;
 // TODO, use other re-export
 use reqwest_dav::re_exports::url::form_urlencoded;
 use tauri::Url;
+
+type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
 
 pub(super) fn normalize_profile_home_url(raw: &str) -> Option<String> {
     let url = Url::parse(raw.trim()).ok()?;
@@ -112,6 +116,9 @@ pub struct PrfOption {
     pub proxies: Option<String>,
 
     pub groups: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub login_password: Option<String>,
 }
 
 impl PrfOption {
@@ -132,6 +139,7 @@ impl PrfOption {
                 result.proxies = b_ref.proxies.clone().or(result.proxies);
                 result.groups = b_ref.groups.clone().or(result.groups);
                 result.timeout_seconds = b_ref.timeout_seconds.or(result.timeout_seconds);
+                result.login_password = b_ref.login_password.clone().or(result.login_password);
                 Some(result)
             }
             (Some(a_ref), None) => Some(a_ref.clone()),
@@ -252,6 +260,7 @@ impl PrfItem {
         let mut rules = option.and_then(|o| o.rules.clone());
         let mut proxies = option.and_then(|o| o.proxies.clone());
         let mut groups = option.and_then(|o| o.groups.clone());
+        let login_password = option.and_then(|o| o.login_password.clone());
 
         let proxy_type = if self_proxy {
             ProxyType::Localhost
@@ -353,7 +362,32 @@ impl PrfItem {
         let name = name
             .map(|s| s.to_owned())
             .unwrap_or_else(|| filename.map(|s| s.into()).unwrap_or_else(|| "Remote File".into()));
-        let data = resp.text();
+        let mut data = resp.text().to_owned();
+
+        let encrypted = header
+            .get("Subscription-Encryption")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("true"));
+        if encrypted {
+            let password = login_password
+                .as_deref()
+                .filter(|password| !password.is_empty())
+                .ok_or_else(|| anyhow::anyhow!("SUBSCRIPTION_NEED_PASSWORD"))?;
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(data.trim())
+                .context("subscription decryption: invalid base64 body")?;
+            let (iv, ciphertext) = decoded
+                .split_at_checked(16)
+                .ok_or_else(|| anyhow::anyhow!("subscription decryption: body too short"))?;
+            let mut ciphertext = ciphertext.to_vec();
+            let decrypted = Aes128CbcDec::new_from_slices(md5::compute(password.as_bytes()).as_ref(), iv)
+                .map_err(|_| anyhow::anyhow!("subscription decryption: invalid key or IV"))?
+                .decrypt_padded_mut::<Pkcs7>(&mut ciphertext)
+                .map_err(|_| anyhow::anyhow!("SUBSCRIPTION_WRONG_PASSWORD"))?;
+            data = std::str::from_utf8(decrypted)
+                .context("subscription decryption: result is not valid UTF-8")?
+                .to_owned();
+        }
 
         let data = data.trim_start_matches('\u{feff}');
 
@@ -406,6 +440,7 @@ impl PrfItem {
                 proxies,
                 groups,
                 allow_auto_update,
+                login_password,
                 ..PrfOption::default()
             }),
             home,
