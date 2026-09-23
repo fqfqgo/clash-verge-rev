@@ -851,6 +851,7 @@ export interface TranslationResources {
           }
           clashService: {
             installSuccess: string
+            permissionFallback: string
             sidecarFallback: string
             uninstallSuccess: string
           }
