@@ -97,7 +97,7 @@ scopeguard = "1.2.0"
 tauri-plugin-notification = "2.4.0"
 tokio-stream = "0.1.19"
 backon = { version = "1.6.0", features = ["tokio-sleep"] }
-tauri-plugin-http = "2.6.0"
+tauri-plugin-http = "2.6.1"
 tracing = { workspace = true }
 tauri-plugin-devtools = { version = "2.2.1", optional = true }
 # Keep the Rust and JavaScript mihomo APIs on the exact same revision. A
@@ -153,7 +153,7 @@ windows-sys.workspace = true
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-global-shortcut = "2.3.2"
-tauri-plugin-updater = "2.11.0"
+tauri-plugin-updater = "2.12.0"
 
 [dev-dependencies]
 criterion = { workspace = true }
