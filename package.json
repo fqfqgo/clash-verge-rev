@@ -86,7 +86,7 @@
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "swr": "^2.5.1",
-    "tauri-plugin-mihomo-api": "github:clash-verge-rev/tauri-plugin-mihomo#17c7757389ca73d29882753ecf7a160de29aabbe",
+    "tauri-plugin-mihomo-api": "github:clash-verge-rev/tauri-plugin-mihomo#ba8434c08c869916b8041d707ad66599bb5230b2",
     "types-pac": "^1.0.3",
     "validator": "^13.15.35"
   },
