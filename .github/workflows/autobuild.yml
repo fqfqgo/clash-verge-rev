@@ -40,15 +40,15 @@ jobs:
         run: bash ./scripts/extract_update_logs.sh
         shell: bash
 
-      - uses: pnpm/action-setup@v6.0.9
-        name: Install pnpm
-        with:
-          run_install: false
-
       - name: Install Node
         uses: actions/setup-node@v6
         with:
           node-version: '24.18.0'
+
+      - uses: pnpm/action-setup@v6.0.9
+        name: Install pnpm
+        with:
+          run_install: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -168,16 +168,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libxslt1.1 libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
-      - uses: pnpm/action-setup@v6.0.9
-        name: Install pnpm
-        with:
-          run_install: false
-
       - name: Install Node
         uses: actions/setup-node@v6
         with:
           node-version: '24.18.0'
-          cache: 'pnpm'
+
+      - uses: pnpm/action-setup@v6.0.9
+        name: Install pnpm
+        with:
+          run_install: false
 
       - name: Pnpm Cache
         uses: actions/cache@v6
@@ -263,16 +262,15 @@ jobs:
           cache-all-crates: true
           cache-workspace-crates: true
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.0.9
-        with:
-          run_install: false
-
       - name: Install Node
         uses: actions/setup-node@v6
         with:
           node-version: '24.18.0'
-          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.9
+        with:
+          run_install: false
 
       - name: Pnpm Cache
         uses: actions/cache@v6
@@ -408,16 +406,15 @@ jobs:
           cache-all-crates: true
           cache-workspace-crates: true
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v6.0.9
-        with:
-          run_install: false
-
       - name: Install Node
         uses: actions/setup-node@v6
         with:
           node-version: '24.18.0'
-          cache: 'pnpm'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.9
+        with:
+          run_install: false
 
       - name: Pnpm Cache
         uses: actions/cache@v6
