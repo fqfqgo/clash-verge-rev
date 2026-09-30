@@ -104,7 +104,7 @@ tauri-plugin-devtools = { version = "2.2.1", optional = true }
 # floating branch here can silently produce an incompatible desktop build.
 tauri-plugin-mihomo = { git = "https://github.com/clash-verge-rev/tauri-plugin-mihomo", rev = "ba8434c08c869916b8041d707ad66599bb5230b2" }
 async-trait = "0.1.92"
-clash_verge_service_ipc = { git = "https://github.com/clash-verge-rev/clash-verge-service-ipc.git", tag = "v2.7.4", version = "2.7.4", features = [
+clash_verge_service_ipc = { git = "https://github.com/clash-verge-rev/clash-verge-service-ipc.git", tag = "v2.7.5", version = "2.7.5", features = [
   "client",
 ] }
 arc-swap = "1.9.2"
