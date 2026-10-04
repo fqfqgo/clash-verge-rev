@@ -115,7 +115,9 @@ if (-not $packageExists) {
   }
   Write-Host "Installer URLs:`n$($urls -join "`n")"
   $notesUrl = "https://github.com/$Repo/releases/tag/$Tag"
-  Invoke-Komac update $PkgId --version $Version --urls ($urls -join ' ') --submit --release-notes-url $notesUrl
+  # Pass each URL as its own argv; a joined string becomes one URL with %20 and 404s.
+  $updateArgs = @('update', $PkgId, '--version', $Version, '--urls') + $urls + @('--submit', '--release-notes-url', $notesUrl)
+  Invoke-Komac @updateArgs
 }
 
 Write-Host 'Cleaning up merged komac branches...'
