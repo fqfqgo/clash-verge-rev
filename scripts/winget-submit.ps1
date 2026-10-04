@@ -1,5 +1,25 @@
 # Submit or update V2Free.ClashVergeForV2free on winget-pkgs via komac.
 $ErrorActionPreference = 'Stop'
+# Native komac exit codes must fail the step (PS 7.3+).
+if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+  $PSNativeCommandUseErrorActionPreference = $true
+}
+
+function Invoke-Komac {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]] $KomacArgs
+  )
+  Write-Host ">> komac $($KomacArgs -join ' ')"
+  & komac @KomacArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "komac failed with exit code $LASTEXITCODE : $($KomacArgs -join ' ')"
+  }
+}
+
+if ([string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
+  throw 'GITHUB_TOKEN (WINGET_TOKEN) is required for komac to push and open a PR'
+}
 
 $PkgId = 'V2Free.ClashVergeForV2free'
 $Version = $env:VERSION
@@ -17,7 +37,7 @@ $manifestPath = "manifests/$($PkgId.ToLower()[0])/$($PkgId.Replace('.', '/'))"
 $localManifest = "manifests/winget/V2Free.ClashVergeForV2free/$Version"
 
 Write-Host "Syncing winget-pkgs fork..."
-komac sync-fork
+Invoke-Komac sync-fork
 
 $packageExists = $false
 try {
@@ -38,7 +58,7 @@ if (-not $packageExists) {
     throw "Missing local manifest directory: $localManifest"
   }
   Write-Host "Submitting initial manifest from $localManifest ..."
-  komac submit $localManifest -y
+  Invoke-Komac submit $localManifest -y
 } else {
   Write-Host "Updating package $PkgId $Version ..."
   $headers = @{
@@ -46,16 +66,19 @@ if (-not $packageExists) {
     Accept        = 'application/vnd.github+json'
   }
   $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/tags/$Tag" -Headers $headers
-  $urls = (
+  $urls = @(
     $release.assets |
-      Where-Object { $_.name -match '_(arm64|x64|x86)-setup\.exe$' -and $_.name -notmatch 'fixed_webview2' }
-  ).browser_download_url -join ' '
-  if ([string]::IsNullOrWhiteSpace($urls)) {
+      Where-Object { $_.name -match '_(arm64|x64|x86)-setup\.exe$' -and $_.name -notmatch 'fixed_webview2' } |
+      ForEach-Object { $_.browser_download_url }
+  )
+  if ($urls.Count -eq 0) {
     throw "No installer URLs matched for tag $Tag"
   }
+  Write-Host "Installer URLs:`n$($urls -join "`n")"
   $notesUrl = "https://github.com/$Repo/releases/tag/$Tag"
-  komac update $PkgId --version $Version --urls $urls --submit --release-notes-url $notesUrl
+  Invoke-Komac update $PkgId --version $Version --urls ($urls -join ' ') --submit --release-notes-url $notesUrl
 }
 
 Write-Host 'Cleaning up merged komac branches...'
-komac cleanup --only-merged
+Invoke-Komac cleanup --only-merged
+Write-Host 'WinGet submit finished.'

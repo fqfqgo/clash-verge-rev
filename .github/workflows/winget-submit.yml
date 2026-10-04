@@ -6,7 +6,7 @@ on:
       version:
         description: Package version (without v prefix)
         required: true
-        default: '2.5.2'
+        default: '2.5.25'
 
 permissions:
   contents: read
@@ -35,4 +35,4 @@ jobs:
           KOMAC_FORK_OWNER: ${{ github.repository_owner }}
           KOMAC_CREATED_WITH: Clash Verge for v2free WinGet Submit
           KOMAC_CREATED_WITH_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: ./scripts/winget-submit.ps1
+        run: pwsh -File ./scripts/winget-submit.ps1
