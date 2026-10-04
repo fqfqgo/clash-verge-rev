@@ -17,6 +17,46 @@ function Invoke-Komac {
   }
 }
 
+function Sync-WingetPkgsFork {
+  $forkOwner = if (-not [string]::IsNullOrWhiteSpace($env:KOMAC_FORK_OWNER)) {
+    $env:KOMAC_FORK_OWNER
+  } else {
+    'fqfqgo'
+  }
+  $forkRepo = "$forkOwner/winget-pkgs"
+  $headers = @{
+    Authorization           = "Bearer $env:GITHUB_TOKEN"
+    Accept                  = 'application/vnd.github+json'
+    'User-Agent'            = 'clash-verge-rev-winget'
+    'X-GitHub-Api-Version'  = '2022-11-28'
+  }
+
+  # komac sync-fork often reports UpdateRef "permissions" errors when the fork is
+  # stale or the PAT lacks the workflow scope. Prefer GitHub's merge-upstream API.
+  Write-Host "Syncing $forkRepo from upstream (merge-upstream)..."
+  try {
+    $result = Invoke-RestMethod `
+      -Method Post `
+      -Uri "https://api.github.com/repos/$forkRepo/merge-upstream" `
+      -Headers $headers `
+      -ContentType 'application/json' `
+      -Body '{"branch":"master"}'
+    Write-Host "Fork sync: $($result.message); merge_type=$($result.merge_type)"
+  } catch {
+    $detail = $_.ErrorDetails.Message
+    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "$_" }
+    throw @"
+Failed to sync $forkRepo from microsoft/winget-pkgs.
+GitHub said: $detail
+
+Fix one of these, then re-run:
+1. Open https://github.com/$forkRepo and click Sync fork -> Update branch
+2. Classic PAT in WINGET_TOKEN needs scopes: public_repo (or repo) AND workflow
+   (workflow is required when upstream changed files under .github/workflows)
+"@
+  }
+}
+
 if ([string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN)) {
   throw 'GITHUB_TOKEN (WINGET_TOKEN) is required for komac to push and open a PR'
 }
@@ -36,8 +76,7 @@ if ([string]::IsNullOrWhiteSpace($Repo)) {
 $manifestPath = "manifests/$($PkgId.ToLower()[0])/$($PkgId.Replace('.', '/'))"
 $localManifest = "manifests/winget/V2Free.ClashVergeForV2free/$Version"
 
-Write-Host "Syncing winget-pkgs fork..."
-Invoke-Komac sync-fork
+Sync-WingetPkgsFork
 
 $packageExists = $false
 try {
