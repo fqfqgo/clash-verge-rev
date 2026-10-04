@@ -60,7 +60,12 @@ ${StrLoc}
 !define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
 !define MINIMUMWEBVIEW2VERSION "{{minimum_webview2_version}}"
-!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
+; ARP / WinGet ProductCode (must stay unique vs official ClashVergeRev.ClashVergeRev)
+!define PRODUCTCODE "Clash V2free"
+!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTCODE}"
+; Previous fork builds used product name as ProductCode and collided with upstream
+!define LEGACY_PRODUCTCODE "Clash Verge"
+!define LEGACY_UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_PRODUCTCODE}"
 !define MANUKEY "Software\${MANUFACTURER}"
 !define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
 ; Legacy fork install folder (migrated away on upgrade)
@@ -76,6 +81,7 @@ Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
 Var LegacyMigrated
+Var ExistingUninstKey
 Var VC_REDIST_URL
 Var VC_REDIST_EXE
 Var VC_RUNTIME_READY
@@ -206,8 +212,14 @@ Function PageReinstall
   wix_loop_done:
 
   ; Check if there is an existing installation, if not, abort the reinstall page
+  StrCpy $ExistingUninstKey "${UNINSTKEY}"
   ReadRegStr $R0 SHCTX "${UNINSTKEY}" ""
   ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} "$R0$R1" == ""
+    StrCpy $ExistingUninstKey "${LEGACY_UNINSTKEY}"
+    ReadRegStr $R0 SHCTX "${LEGACY_UNINSTKEY}" ""
+    ReadRegStr $R1 SHCTX "${LEGACY_UNINSTKEY}" "UninstallString"
+  ${EndIf}
   ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
 
   ; Compare this installar version with the existing installation
@@ -217,7 +229,7 @@ Function PageReinstall
   ${If} $WixMode = 1
     ReadRegStr $R0 HKLM "$R6" "DisplayVersion"
   ${Else}
-    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
+    ReadRegStr $R0 SHCTX "$ExistingUninstKey" "DisplayVersion"
   ${EndIf}
   ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
 
@@ -344,7 +356,13 @@ Function PageLeaveReinstall
       ExecWait '$R1' $0
     ${Else}
       ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-      ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+      ReadRegStr $R1 SHCTX "$ExistingUninstKey" "UninstallString"
+      ${If} $R1 == ""
+        ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+      ${EndIf}
+      ${If} $R1 == ""
+        ReadRegStr $R1 SHCTX "${LEGACY_UNINSTKEY}" "UninstallString"
+      ${EndIf}
       ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
       StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
@@ -1065,6 +1083,9 @@ Section Install
 
   ; Remove old main binary if it doesn't match new main binary name
   ReadRegStr $OldMainBinaryName SHCTX "${UNINSTKEY}" "MainBinaryName"
+  ${If} $OldMainBinaryName == ""
+    ReadRegStr $OldMainBinaryName SHCTX "${LEGACY_UNINSTKEY}" "MainBinaryName"
+  ${EndIf}
   ${If} $OldMainBinaryName != ""
   ${AndIf} $OldMainBinaryName != "${MAINBINARYNAME}.exe"
     Delete "$INSTDIR\$OldMainBinaryName"
@@ -1093,6 +1114,10 @@ Section Install
     WriteRegStr SHCTX "${UNINSTKEY}" "URLUpdateInfo" "${HOMEPAGE}"
     WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
   !endif
+
+  ; Drop the old shared ProductCode so WinGet no longer confuses us with upstream
+  DeleteRegKey SHCTX "${LEGACY_UNINSTKEY}"
+  DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\${LEGACY_DIR_V2FREE}"
 
   ; Create start menu shortcut
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
@@ -1332,10 +1357,13 @@ Section Uninstall
   ; Remove registry information for add/remove programs
   !if "${INSTALLMODE}" == "both"
     DeleteRegKey SHCTX "${UNINSTKEY}"
+    DeleteRegKey SHCTX "${LEGACY_UNINSTKEY}"
   !else if "${INSTALLMODE}" == "perMachine"
     DeleteRegKey HKLM "${UNINSTKEY}"
+    DeleteRegKey HKLM "${LEGACY_UNINSTKEY}"
   !else
     DeleteRegKey HKCU "${UNINSTKEY}"
+    DeleteRegKey HKCU "${LEGACY_UNINSTKEY}"
   !endif
 
   ; Removes the Autostart entry for ${PRODUCTNAME} from the HKCU Run key if it exists.
@@ -1387,7 +1415,21 @@ Function RestorePreviousInstallLocation
     Goto restore_done
   ${EndIf}
 
-  Push "${PRODUCTNAME}"
+  Push "${PRODUCTCODE}"
+  Call TryRestoreFromUninstallKey
+  Pop $R1
+  ${If} $R1 == 1
+    Goto restore_done
+  ${EndIf}
+
+  Push "${LEGACY_PRODUCTCODE}"
+  Call TryRestoreFromUninstallKey
+  Pop $R1
+  ${If} $R1 == 1
+    Goto restore_done
+  ${EndIf}
+
+  Push "${LEGACY_DIR_V2FREE}"
   Call TryRestoreFromUninstallKey
   Pop $R1
   ${If} $R1 == 1
